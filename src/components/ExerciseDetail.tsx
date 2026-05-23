@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import PoseTracker from './PoseTracker';
 import { Exercise } from '../data/types';
 
@@ -37,6 +37,7 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
   const [timeLeft, setTimeLeft] = useState(exercise.duration || 60);
   const [isCompleted, setIsCompleted] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;
@@ -189,7 +190,8 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
         </button>
         {showCamera && (
           <div className="px-5 pb-5">
-            <PoseTracker />
+            <video ref={videoRef} autoPlay playsInline className="hidden" />
+            <PoseTracker videoRef={videoRef} isTracking={showCamera} />
           </div>
         )}
       </div>
