@@ -1,19 +1,21 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 export default function PoseTracker() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [cameraOn, setCameraOn] = useState(false);
   const [tracking, setTracking] = useState(false);
   const [error, setError] = useState('');
   const streamRef = useRef<MediaStream | null>(null);
   const animRef = useRef<number>();
+  const [videoSize, setVideoSize] = useState({ w: 640, h: 480 });
 
   const startCamera = async () => {
     setError('');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'user', width: 640, height: 480 } 
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } 
       });
       streamRef.current = stream;
       if (videoRef.current) {
@@ -22,7 +24,7 @@ export default function PoseTracker() {
       }
       setCameraOn(true);
     } catch (e) {
-      setError('無法取得鏡頭權限，請確認瀏覽器已允許使用相機');
+      setError('无法取得镜头权限，请确认浏览器已允许使用相机');
       console.error('Camera error:', e);
     }
   };
@@ -37,6 +39,16 @@ export default function PoseTracker() {
     setTracking(false);
   };
 
+  const handleVideoMeta = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    const w = v.videoWidth || 640;
+    const h = v.videoHeight || 480;
+    setVideoSize({ w, h });
+    const ca = canvasRef.current;
+    if (ca) { ca.width = w; ca.height = h; }
+  };
+
   const startTracking = () => {
     setTracking(true);
     const video = videoRef.current;
@@ -46,8 +58,8 @@ export default function PoseTracker() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
+    canvas.width = videoSize.w;
+    canvas.height = videoSize.h;
     
     const frame = () => {
       if (!video || video.paused || video.ended) return;
@@ -58,11 +70,13 @@ export default function PoseTracker() {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       ctx.restore();
       
+      // Tracking indicator
       ctx.fillStyle = 'rgba(255, 165, 0, 0.7)';
       ctx.font = '18px Arial';
       ctx.textAlign = 'center';
-      ctx.fillText('追蹤中...', canvas.width / 2, 30);
+      ctx.fillText('Tracking...', canvas.width / 2, 30);
       
+      // Green elliptical guide
       const cx = canvas.width / 2;
       const cy = canvas.height / 3;
       ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
@@ -75,7 +89,7 @@ export default function PoseTracker() {
       ctx.fillStyle = '#00FF00';
       ctx.font = '12px Arial';
       ctx.textAlign = 'left';
-      ctx.fillText('臉部區域', cx + 65, cy - 15);
+      ctx.fillText('Face zone', cx + 65, cy - 15);
       
       animRef.current = requestAnimationFrame(frame);
     };
@@ -86,20 +100,22 @@ export default function PoseTracker() {
   return (
     <div className="bg-gray-900 rounded-lg p-4">
       <h3 className="text-white font-bold mb-3 flex items-center gap-2">
-        📷 鏡頭追蹤模式
+        📷 Camera Tracking
       </h3>
       
-      <div className="relative bg-black rounded-lg overflow-hidden mb-3" style={{aspectRatio: '4/3'}}>
+      <div ref={containerRef} className="relative bg-black rounded-lg overflow-hidden mb-3" style={{ maxHeight: '480px' }}>
         <video 
           ref={videoRef} 
-          className="w-full h-full object-cover"
-          style={{transform: 'scaleX(-1)'}}
+          className="w-full"
+          style={{ transform: 'scaleX(-1)', display: 'block', maxHeight: '480px', objectFit: 'contain' }}
           playsInline 
           muted
+          onLoadedMetadata={handleVideoMeta}
         />
         <canvas 
           ref={canvasRef} 
-          className="absolute top-0 left-0 w-full h-full"
+          className="absolute top-0 left-0 w-full"
+          style={{ maxHeight: '480px', aspectRatio: videoSize.w + '/' + videoSize.h }}
         />
       </div>
 
@@ -112,29 +128,29 @@ export default function PoseTracker() {
       <div className="flex gap-2">
         {!cameraOn ? (
           <button onClick={startCamera} className="btn-primary flex-1 bg-blue-600 hover:bg-blue-700">
-            📷 開啟鏡頭
+            📷 Open Camera
           </button>
         ) : !tracking ? (
           <button onClick={startTracking} className="btn-primary flex-1 bg-green-600 hover:bg-green-700">
-            🎯 開始追蹤
+            🎯 Start Tracking
           </button>
         ) : (
           <button onClick={stopCamera} className="btn-primary flex-1 bg-red-600 hover:bg-red-700">
-            ⏹ 關閉鏡頭
+            ⏹ Stop Camera
           </button>
         )}
       </div>
       
       {cameraOn && !tracking && (
         <p className="text-gray-400 text-xs text-center mt-2">
-          ✅ 鏡頭已開啟，按下「開始追蹤」啟動臉部偵測
+          ✅ Camera is on. Click "Start Tracking" to begin.
         </p>
       )}
       
       {tracking && (
         <div className="mt-3 bg-green-900/30 border border-green-700 rounded p-3">
-          <p className="text-green-400 text-sm font-bold mb-1">✅ 追蹤中 - 請看著畫面做復健動作</p>
-          <p className="text-gray-400 text-xs">綠色虛線橢圓為臉部參考區域，請對齊臉部位置</p>
+          <p className="text-green-400 text-sm font-bold mb-1">✅ Tracking - Please do your rehab exercises facing the camera</p>
+          <p className="text-gray-400 text-xs">The green ellipse is a face alignment guide. Position your face within it.</p>
         </div>
       )}
     </div>
