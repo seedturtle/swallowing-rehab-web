@@ -10,7 +10,7 @@ export default function Header({ onNavigate, currentView }: HeaderProps) {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold">吞嚥復健 - 居家復健指南</h1>
-            <p className="text-blue-200 text-sm">Mennonite Christian Hospital</p>
+            <p className="text-blue-200 text-sm">馬偕紀念醫院</p>
           </div>
           
           <nav className="flex gap-4">
