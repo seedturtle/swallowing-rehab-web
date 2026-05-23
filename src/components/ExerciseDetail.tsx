@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import PoseTracker from './PoseTracker';
 import { Exercise } from '../data/types';
 
 interface ExerciseDetailProps {
@@ -55,7 +56,7 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
           ← Back
         </button>
         <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 font-medium">
-          {(exercise as any).categoryLabel || exercise.category}
+          {exercise.category}
         </span>
       </div>
 
@@ -155,6 +156,7 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
             {showCamera ? 'ON' : 'OFF'}
           </span>
         </button>
+        {showCamera && <PoseTracker />}
       </div>
     </div>
   );
