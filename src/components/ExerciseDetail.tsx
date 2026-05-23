@@ -13,7 +13,7 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
   const [timeLeft, setTimeLeft] = useState(exercise.duration);
   const [repetitions, setRepetitions] = useState(10);
   const [isCompleted, setIsCompleted] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const category = categories.find(c => c.id === exercise.category);
 
   // 計時器倒數邏輯
