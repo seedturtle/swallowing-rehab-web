@@ -25,7 +25,6 @@ export default function PoseTracker({ preloadedModel }: PoseTrackerProps) {
       const detector = await faceDetection.createDetector(model, {
         runtime: 'tfjs',
         maxFaces: 1,
-        refineLandmarks: true,
       });
       modelRef.current = detector;
       setModelReady(true);
