@@ -218,7 +218,13 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
           </button>
         {showCamera && (
           <div className="px-5 pb-5">
-            <video ref={videoRef} autoPlay playsInline className="hidden" />
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover"
+            />
             <PoseTracker videoRef={videoRef} isTracking={showCamera} />
           </div>
         )}
