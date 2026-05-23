@@ -13,11 +13,11 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
   const [timeLeft, setTimeLeft] = useState(exercise.duration);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [repetitions, setRepetitions] = useState(10);
+  const [repetitions, setRepetitions] = useState(exercise.repetitions ?? 10);
   const [showCamera, setShowCamera] = useState(false);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
     if (isTimerRunning && timeLeft > 0) {
       interval = setInterval(() => {
         setTimeLeft((prev) => {
@@ -30,7 +30,7 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
         });
       }, 1000);
     }
-    return () => clearInterval(interval);
+    return () => { if (interval) clearInterval(interval); };
   }, [isTimerRunning, timeLeft]);
 
   const handleStartTimer = () => {
@@ -56,20 +56,18 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Header */}
       <div className="bg-gradient-to-r from-[#003366] to-[#006699] text-white p-4">
-        <button onClick={onBack} className="text-white mb-2">← 返回列表</button>
+        <button onClick={onBack} className="text-white mb-2">{'\u2190'} 返回列表</button>
         <h1 className="text-xl font-bold">{exercise.name}</h1>
       </div>
 
       <div className="p-4 space-y-4">
-        {/* Exercise Info */}
         <div className="bg-white rounded-lg shadow-md p-4">
           <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm mb-2">
             {categories.find(c => c.id === exercise.category)?.name}
           </span>
           <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-            <span className="text-xl">📋</span> 動作指示
+            <span className="text-xl">{'\ud83d\udccb'}</span> 動作指示
           </h3>
           <ol className="space-y-3">
             {exercise.instructions.map((instruction, index) => (
@@ -83,31 +81,28 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
           </ol>
         </div>
 
-        {/* 鏡頭追蹤功能 */}
+        {/* Camera Tracking */}
         <div className="bg-white rounded-lg shadow-md p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold text-gray-800 flex items-center gap-2">
-              🎥 鏡頭追蹤模式
-            </h3>
+            <h3 className="font-bold text-gray-800 flex items-center gap-2">{'\ud83c\udfa5'} 鏡頭追蹤模式</h3>
             <button 
               onClick={() => setShowCamera(!showCamera)}
-              className={`px-3 py-1 rounded-full text-sm ${showCamera ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}
+              className={'px-3 py-1 rounded-full text-sm ' + (showCamera ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600')}
             >
               {showCamera ? '關閉' : '開啟'}
             </button>
           </div>
-          
           {showCamera && <PoseTracker />}
         </div>
 
         {/* Tips */}
-        {exercise.tips && (
+        {(exercise.tips ?? []).length > 0 && (
           <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
-            <h3 className="font-bold text-yellow-800 mb-2">💡 小技巧</h3>
+            <h3 className="font-bold text-yellow-800 mb-2">{'\ud83d\udca1'} 小技巧</h3>
             <ul className="space-y-1">
-              {exercise.tips.map((tip, index) => (
+              {exercise.tips!.map((tip, index) => (
                 <li key={index} className="text-yellow-700 text-sm flex gap-2">
-                  <span>•</span>
+                  <span>{'\u2022'}</span>
                   <span>{tip}</span>
                 </li>
               ))}
@@ -119,41 +114,36 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
         {exercise.duration > 0 && (
           <div className="bg-white rounded-lg shadow-md p-4">
             <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-              ⏱️ 計時練習
+              {'\u23f1\ufe0f'} 計時練習
             </h3>
-            
-            {/* Timer Display */}
             <div className="text-center mb-4">
-              <div className={`text-6xl font-bold ${isTimerRunning ? 'text-[#003366]' : 'text-gray-400'}`}>
+              <div className={'text-6xl font-bold ' + (isTimerRunning ? 'text-[#003366]' : 'text-gray-400')}>
                 {timeLeft}s
               </div>
-              {/* Progress Bar */}
               <div className="w-full bg-gray-200 rounded-full h-3 mt-3">
                 <div 
                   className="bg-gradient-to-r from-[#003366] to-[#006699] h-3 rounded-full transition-all duration-1000"
-                  style={{ width: `${progress}%` }}
+                  style={{ width: progress + '%' }}
                 />
               </div>
               {isTimerRunning && (
                 <p className="text-sm text-[#003366] mt-2 animate-pulse">倒數中...</p>
               )}
             </div>
-
-            {/* Control Buttons */}
             <div className="flex gap-3">
               {!isTimerRunning && !isCompleted && (
                 <button onClick={handleStartTimer} className="btn-primary flex-1">
-                  ▶️ 開始練習計時
+                  {'\u25b6\ufe0f'} 開始練習計時
                 </button>
               )}
               {isTimerRunning && (
                 <button onClick={handleCancelTimer} className="btn-primary flex-1 bg-gray-500">
-                  ❌ 取消計時
+                  {'\u274c'} 取消計時
                 </button>
               )}
               {isCompleted && (
                 <button onClick={handleComplete} className="btn-primary flex-1 bg-green-600">
-                  ✓ 完成練習！
+                  {'\u2713'} 完成練習！
                 </button>
               )}
             </div>
@@ -161,10 +151,10 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
         )}
 
         {/* Repetition Section */}
-        {exercise.repetitions {exercise.repetitions > 0 && ({exercise.repetitions > 0 && ( exercise.repetitions > 0 && (
+        {(exercise.repetitions ?? 0) > 0 && (
           <div className="bg-white rounded-lg shadow-md p-4">
             <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-              🔄 目標次數
+              {'\ud83d\udd04'} 目標次數
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -178,21 +168,21 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
                 />
               </div>
               <div className="flex items-center justify-center text-4xl">
-                / {exercise.repetitions}
+                / {(exercise.repetitions ?? 10)}
               </div>
             </div>
             {!isTimerRunning && !isCompleted && (
               <button onClick={handleComplete} className="btn-primary w-full mt-4">
-                ✓ 完成 {repetitions} 次
+                {'\u2713'} 完成 {repetitions} 次
               </button>
             )}
           </div>
         )}
 
-        {/* Complete Button */}
-        {exercise.duration === 0 && (!exercise.repetitions || exercise.repetitions === 0) && (
+        {/* Simple Complete Button */}
+        {exercise.duration === 0 && ((exercise.repetitions ?? 0) === 0) && (
           <button onClick={() => onComplete(exercise.id)} className="btn-primary w-full">
-            ✓ 完成練習
+            {'\u2713'} 完成練習
           </button>
         )}
       </div>
