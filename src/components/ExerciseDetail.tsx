@@ -95,7 +95,8 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
   };
 
   const imgSrc = categoryImages[exercise.category] || '/images/cartoon_facial.jpg';
-  const videoSrc = (exercise as any).videoUrl;
+  // 自動對應：videoUrl 或依練習名稱自動查找
+  const videoSrc = (exercise as any).videoUrl || `/videos/${exercise.name}.mp4`;
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
 
   return (

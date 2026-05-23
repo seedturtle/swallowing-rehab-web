@@ -4,7 +4,7 @@ export const exercises: Exercise[] = [
   // 臉部運動
   {
     id: 'facial-1',
-    videoUrl: '/videos/facial-demo.mp4',
+    videoUrl: '/videos/臉部表情運動.mp4',
     name: '臉部表情運動',
     category: 'facial',
     difficulty: 'basic',
@@ -26,7 +26,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'facial-2',
-    videoUrl: '/videos/jaw-demo.mp4',
+    videoUrl: '/videos/下巴開合運動.mp4',
     name: '下巴開合運動',
     category: 'facial',
     difficulty: 'basic',
