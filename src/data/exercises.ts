@@ -233,10 +233,16 @@ export const exercises: Exercise[] = [
 ];
 
 export const categories = [
-  { id: 'facial', name: '臉部運動', icon: '😊', color: '#3B82F6' },
-  { id: 'tongue', name: '舌頭運動', icon: '👅', color: '#10B981' },
-  { id: 'lip', name: '嘴唇運動', icon: '👄', color: '#F59E0B' },
-  { id: 'chewing', name: '咀嚼運動', icon: '🦷', color: '#8B5CF6' },
-  { id: 'swallow', name: '吞嚥練習', icon: '⏱️', color: '#EF4444' },
-  { id: 'posture', name: '姿勢調整', icon: '🧍', color: '#06B6D4' },
+  // 臉部運動
+  { id: 'facial', name: '臉部運動', icon: '😊', color: '#3B82F6', frames: [] },
+  // 舌頭運動  
+  { id: 'tongue', name: '舌頭運動', icon: '👅', color: '#10B981', frames: [] },
+  // 嘴唇運動
+  { id: 'lip', name: '嘴唇運動', icon: '👄', color: '#F59E0B', frames: [] },
+  // 咀嚼運動
+  { id: 'chewing', name: '咀嚼運動', icon: '🦷', color: '#8B5CF6', frames: [] },
+  // 吞嚥練習
+  { id: 'swallow', name: '吞嚥練習', icon: '⏱️', color: '#EF4444', frames: [] },
+  // 姿勢調整
+  { id: 'posture', name: '姿勢調整', icon: '🧍', color: '#06B6D4', frames: [] },
 ];

@@ -1,8 +1,11 @@
+import { useEffect, useState } from 'react';
+
 interface Category {
   id: string;
   name: string;
   icon: string;
   color: string;
+  frames?: string[];
 }
 
 interface CategoryNavProps {
@@ -12,8 +15,32 @@ interface CategoryNavProps {
 }
 
 export default function CategoryNav({ categories, selected, onSelect }: CategoryNavProps) {
+  const [currentFrame, setCurrentFrame] = useState(0);
+  const selectedCat = categories.find(c => c.id === selected);
+  
+  // 自動輪播動畫
+  useEffect(() => {
+    if (selectedCat?.frames?.length) {
+      const interval = setInterval(() => {
+        setCurrentFrame(prev => (prev + 1) % selectedCat.frames!.length);
+      }, 1500); // 每1.5秒換一幀
+      return () => clearInterval(interval);
+    }
+  }, [selected, selectedCat?.frames?.length]);
+
   return (
     <div className="mb-6 overflow-x-auto">
+      {/* 類別展示圖片 */}
+      {selectedCat?.frames?.length ? (
+        <div className="mb-4 relative h-48 rounded-xl overflow-hidden bg-gray-100">
+          <img 
+            src={selectedCat.frames[currentFrame]} 
+            alt={selectedCat.name}
+            className="w-full h-full object-contain"
+          />
+        </div>
+      ) : null}
+      
       <div className="flex gap-3 min-w-max pb-2">
         <button
           onClick={() => onSelect('all')}

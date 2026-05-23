@@ -10,6 +10,7 @@ export interface Exercise {
   imageUrl?: string;
   tips?: string[];
   repetitions?: number;
+  imageFrames?: string[];  // 多幀圖片陣列，用於動畫展示
 }
 
 export interface PatientProgress {
