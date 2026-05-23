@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Exercise } from '../data/types';
 import { categories } from '../data/exercises';
 
@@ -12,17 +12,44 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [timeLeft, setTimeLeft] = useState(exercise.duration);
   const [repetitions, setRepetitions] = useState(10);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
   const category = categories.find(c => c.id === exercise.category);
+
+  // 計時器倒數邏輯
+  useEffect(() => {
+    if (isTimerRunning && timeLeft > 0) {
+      timerRef.current = setTimeout(() => {
+        setTimeLeft(prev => prev - 1);
+      }, 1000);
+    } else if (timeLeft === 0 && isTimerRunning) {
+      setIsTimerRunning(false);
+      setIsCompleted(true);
+    }
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, [isTimerRunning, timeLeft]);
 
   const handleStartTimer = () => {
     setIsTimerRunning(true);
     setTimeLeft(exercise.duration);
+    setIsCompleted(false);
   };
 
   const handleComplete = () => {
     onComplete(exercise.id, repetitions);
     setIsTimerRunning(false);
+    setIsCompleted(false);
     alert('已完成今天的練習！');
+  };
+
+  const handleReset = () => {
+    setIsTimerRunning(false);
+    setIsCompleted(false);
+    setTimeLeft(exercise.duration);
   };
 
   return (
@@ -82,6 +109,24 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
           </div>
         )}
 
+        {/* 計時器顯示區域 */}
+        <div className="bg-gradient-to-r from-[#003366] to-[#006699] rounded-xl p-6 mb-6 text-center">
+          <div className="text-6xl font-bold text-white mb-2">
+            {timeLeft}
+          </div>
+          <div className="text-white/80 text-sm">
+            {isTimerRunning ? '倒數中...' : isCompleted ? '練習完成！' : '設定時間（秒）'}
+          </div>
+          
+          {/* 進度條 */}
+          <div className="mt-4 bg-white/20 rounded-full h-3 overflow-hidden">
+            <div 
+              className="bg-white h-full rounded-full transition-all duration-1000"
+              style={{ width: `${((exercise.duration - timeLeft) / exercise.duration) * 100}%` }}
+            />
+          </div>
+        </div>
+
         <div className="bg-gray-100 rounded-lg p-4 mb-6">
           <h3 className="font-bold text-gray-800 mb-3">設定目標</h3>
           <div className="grid grid-cols-2 gap-4">
@@ -91,7 +136,8 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
                 type="number"
                 value={timeLeft}
                 onChange={(e) => setTimeLeft(Number(e.target.value))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003366] focus:border-transparent"
+                disabled={isTimerRunning}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003366] focus:border-transparent disabled:bg-gray-200"
               />
             </div>
             <div>
@@ -100,18 +146,30 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
                 type="number"
                 value={repetitions}
                 onChange={(e) => setRepetitions(Number(e.target.value))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003366] focus:border-transparent"
+                disabled={isTimerRunning}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003366] focus:border-transparent disabled:bg-gray-200"
               />
             </div>
           </div>
         </div>
 
         <div className="flex gap-4">
-          {!isTimerRunning ? (
+          {!isTimerRunning && !isCompleted && (
             <button onClick={handleStartTimer} className="btn-primary flex-1">
               開始練習計時
             </button>
-          ) : (
+          )}
+          {isTimerRunning && (
+            <button onClick={handleReset} className="btn-primary flex-1 bg-red-600 hover:bg-red-700">
+              取消計時
+            </button>
+          )}
+          {isCompleted && (
+            <button onClick={handleComplete} className="btn-primary flex-1 bg-green-600 hover:bg-green-700">
+              完成練習 ✓
+            </button>
+          )}
+          {!isTimerRunning && !isCompleted && isCompleted === false && timeLeft < exercise.duration && (
             <button onClick={handleComplete} className="btn-primary flex-1 bg-green-600 hover:bg-green-700">
               完成練習 ✓
             </button>
