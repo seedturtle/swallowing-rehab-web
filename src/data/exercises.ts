@@ -232,6 +232,177 @@ export const exercises: Exercise[] = [
     ],
     tips: ['此姿勢適用於管灌餵食後', '需有照顧者在旁協助'],
   },
+
+  // ======================
+  // 頭頸癌復健
+  // ======================
+
+  // 頸部運動
+  {
+    id: 'neck-1',
+    name: '頸部前彎後仰',
+    category: 'neck',
+    difficulty: 'basic',
+    duration: 60,
+    description: '放鬆頸前筋膜，改善放療後頸部僵硬',
+    instructions: [
+      '坐直，肩膀放鬆',
+      '慢慢低頭，下巴靠近胸口',
+      '維持 5 秒，感覺頸後伸展',
+      '慢慢抬頭至正中',
+      '再慢慢向後仰頭',
+      '維持 5 秒，感覺頸前伸展',
+      '回到正中',
+      '重複 10 次',
+    ],
+    tips: ['動作放慢，不要憋氣', '有眩暈者請勿過度後仰', '每日 2-3 組'],
+  },
+  {
+    id: 'neck-2',
+    name: '頸部左右旋轉',
+    category: 'neck',
+    difficulty: 'basic',
+    duration: 60,
+    description: '改善頸部旋轉活動度，恢復日常生活功能',
+    instructions: [
+      '坐直，目視前方',
+      '慢慢將頭轉向左側',
+      '維持 5 秒',
+      '慢慢回到正中',
+      '慢慢將頭轉向右側',
+      '維持 5 秒',
+      '回到正中',
+      '重複 10 次',
+    ],
+    tips: ['肩膀要保持不動', '想像下巴指向肩膀方向'],
+  },
+  {
+    id: 'neck-3',
+    name: '頸部側彎伸展',
+    category: 'neck',
+    difficulty: 'basic',
+    duration: 60,
+    description: '伸展胸鎖乳突肌與斜方肌上束',
+    instructions: [
+      '坐直，右手輕抓椅子邊緣',
+      '左手放在頭部右側',
+      '輕輕將頭拉向左側',
+      '感覺右側頸部伸展',
+      '維持 15 秒',
+      '換邊重複',
+    ],
+    tips: ['不要用力拉扯', '配合深呼吸效果更好'],
+  },
+
+  // 肩膀運動
+  {
+    id: 'shoulder-1',
+    name: '肩膀聳肩運動',
+    category: 'shoulder',
+    difficulty: 'basic',
+    duration: 45,
+    description: '活化副神經支配的斜方肌，預防頸部廓清術後肩膀下垂',
+    instructions: [
+      '坐直或站直，雙手自然垂放',
+      '雙肩同時用力上聳，靠近耳朵',
+      '維持 3 秒',
+      '用力放下肩膀',
+      '重複 15 次',
+    ],
+    tips: ['可在鏡子前練習，觀察肩膀是否對稱'],
+  },
+  {
+    id: 'shoulder-2',
+    name: '肩胛骨後收運動',
+    category: 'shoulder',
+    difficulty: 'intermediate',
+    duration: 60,
+    description: '改善術後圓肩姿勢，強化上背肌群',
+    instructions: [
+      '坐直，雙手放在大腿上',
+      '將肩膀向後向下壓',
+      '感覺肩胛骨在背後互相靠近',
+      '維持 5 秒',
+      '放鬆',
+      '重複 12 次',
+    ],
+    tips: ['想像手肘後方夾一支筆', '不要聳肩'],
+  },
+  {
+    id: 'shoulder-3',
+    name: '手臂前舉外展',
+    category: 'shoulder',
+    difficulty: 'intermediate',
+    duration: 90,
+    description: '維持肩關節活動度，預防術後肩關節攣縮',
+    instructions: [
+      '坐直，手臂自然垂放',
+      '慢慢將手臂向前舉起至 90 度',
+      '維持 3 秒，慢慢放下',
+      '再將手臂向側邊舉起至 90 度',
+      '維持 3 秒，慢慢放下',
+      '左右交替',
+      '各重複 10 次',
+    ],
+    tips: ['如有疼痛請降低高度', '術後請遵循醫師建議的角度限制'],
+  },
+
+  // 張口訓練
+  {
+    id: 'trismus-1',
+    name: '主動張口訓練',
+    category: 'trismus',
+    difficulty: 'basic',
+    duration: 90,
+    description: '漸進式張口訓練，維持並改善牙間距離',
+    instructions: [
+      '坐直，放鬆臉部肌肉',
+      '慢慢張開嘴巴至最大幅度',
+      '維持 10 秒',
+      '慢慢閉上嘴巴',
+      '休息 5 秒',
+      '重複 10 次',
+    ],
+    tips: ['可用尺測量門牙間距離記錄進步', '疼痛時可稍減幅度'],
+  },
+  {
+    id: 'trismus-2',
+    name: '壓舌板輔助張口',
+    category: 'trismus',
+    difficulty: 'advanced',
+    duration: 120,
+    description: '使用壓舌板被動伸展，逐步增加張口幅度',
+    instructions: [
+      '準備 5-10 根壓舌板',
+      '先做主動張口 5 次暖身',
+      '將壓舌板疊放在上下排牙齒之間',
+      '根據舒適程度逐步增加壓舌板數量',
+      '維持 30 秒',
+      '取下後休息 15 秒',
+      '重複 3 次',
+    ],
+    tips: ['循序漸進，以輕微緊繃感為限', '不可有劇痛', '每天執行至少 3 組'],
+  },
+
+  // 淋巴水腫
+  {
+    id: 'lymphedema-1',
+    name: '頸部自我淋巴引流',
+    category: 'lymphedema',
+    difficulty: 'basic',
+    duration: 180,
+    description: '輕柔按摩促進淋巴回流，減輕頸部腫脹',
+    instructions: [
+      '坐直，塗抹適量乳液或按摩油',
+      '用手指腹輕輕從耳後向下滑推至鎖骨',
+      '重複 10 次（雙側）',
+      '從下巴沿下顎線滑推至耳後',
+      '再沿頸側向下至鎖骨',
+      '重複 10 次（雙側）',
+      '輕柔按壓鎖骨上方淋巴區域',
+    ],
+    tips: ['力道非常輕柔，主要是帶動皮膚', '感染期間暫停按摩', '建議每日早晚各一次'],
+  },
 ];
 
 export const categories = [
@@ -247,4 +418,9 @@ export const categories = [
   { id: 'swallow', name: '吞嚥練習', icon: '⏱️', color: '#EF4444', frames: [] },
   // 姿勢調整
   { id: 'posture', name: '姿勢調整', icon: '🧍', color: '#06B6D4', frames: [] },
+  // 頭頸癌復健
+  { id: 'neck', name: '頸部運動', icon: '🔄', color: '#0891B2', frames: [] },
+  { id: 'shoulder', name: '肩膀運動', icon: '💪', color: '#7C3AED', frames: [] },
+  { id: 'trismus', name: '張口訓練', icon: '📏', color: '#DC2626', frames: [] },
+  { id: 'lymphedema', name: '淋巴水腫', icon: '💆', color: '#D97706', frames: [] },
 ];

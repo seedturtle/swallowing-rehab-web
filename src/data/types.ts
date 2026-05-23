@@ -1,7 +1,7 @@
 export interface Exercise {
   id: string;
   name: string;
-  category: 'facial' | 'tongue' | 'lip' | 'chewing' | 'swallow' | 'posture';
+  category: 'facial' | 'tongue' | 'lip' | 'chewing' | 'swallow' | 'posture' | 'neck' | 'shoulder' | 'trismus' | 'lymphedema';
   difficulty: 'basic' | 'intermediate' | 'advanced';
   duration: number; // seconds
   description: string;

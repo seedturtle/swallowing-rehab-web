@@ -9,7 +9,7 @@ export default function Header({ onNavigate, currentView }: HeaderProps) {
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold">吞嚥復健 - 居家復健指南</h1>
+            <h1 className="text-xl font-bold">吞嚥與頭頸復健 - 居家復健指南</h1>
             
           </div>
           

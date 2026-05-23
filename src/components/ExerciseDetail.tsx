@@ -30,6 +30,10 @@ const categoryNames: Record<string, string> = {
   chewing: '咀嚼運動',
   swallow: '吞嚥練習',
   posture: '姿勢調整',
+  neck: '頸部運動',
+  shoulder: '肩膀運動',
+  trismus: '張口訓練',
+  lymphedema: '淋巴水腫',
 };
 
 export default function ExerciseDetail({ exercise, onBack, onComplete }: ExerciseDetailProps) {
