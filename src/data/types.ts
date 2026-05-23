@@ -9,6 +9,7 @@ export interface Exercise {
   videoUrl?: string;
   imageUrl?: string;
   tips?: string[];
+  repetitions?: number;
 }
 
 export interface PatientProgress {
