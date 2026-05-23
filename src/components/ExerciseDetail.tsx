@@ -44,7 +44,7 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
     setIsCompleted(false);
   };
 
-  const handleComplete = () => {
+  const _handleComplete = () => {
     setIsCompleted(true);
     setIsTimerRunning(false);
     setTimeLeft(0);
@@ -61,7 +61,7 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
           ← Back
         </button>
         <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 font-medium">
-          {exercise.categoryLabel || exercise.category}
+          {(exercise as any).categoryLabel || exercise.category}
         </span>
       </div>
 

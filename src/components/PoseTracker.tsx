@@ -10,8 +10,7 @@ export default function PoseTracker() {
   const [cameraError, setCameraError] = useState('');
   const [loadingModel, setLoadingModel] = useState(false);
   const [faceDetected, setFaceDetected] = useState(false);
-  const detectorRef = useRef<any>(null);
-
+  
   useEffect(() => {
     loadModels();
     return () => stopCamera();
