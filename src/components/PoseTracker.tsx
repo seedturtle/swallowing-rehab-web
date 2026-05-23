@@ -1,20 +1,13 @@
-import { useState, useRef, useEffect } from 'react';
-import * as poseDetection from '@tensorflow-models/pose-detection';
+import { useState, useRef } from 'react';
 
-interface PoseTrackerProps {
-  onPoseDetected?: (landmarks: any) => void;
-}
-
-export default function PoseTracker({ onPoseDetected }: PoseTrackerProps) {
+export default function PoseTracker() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isRunning, setIsRunning] = useState(false);
-  const [cameraReady, setCameraReady] = useState(false);
-  const [modelReady, setModelReady] = useState(false);
-  const [error, setError] = useState<string>('');
-  const detectorRef = useRef<any>(null);
-  const animationRef = useRef<number>();
+  const [cameraOn, setCameraOn] = useState(false);
+  const [tracking, setTracking] = useState(false);
+  const [error, setError] = useState('');
   const streamRef = useRef<MediaStream | null>(null);
+  const animRef = useRef<number>();
 
   const startCamera = async () => {
     setError('');
@@ -27,115 +20,73 @@ export default function PoseTracker({ onPoseDetected }: PoseTrackerProps) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
-      setCameraReady(true);
-
-      try {
-        const model = poseDetection.SupportedModels.MoveNet;
-        const detector = await poseDetection.createDetector(model, {
-          modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
-        });
-        detectorRef.current = detector;
-        setModelReady(true);
-      } catch (modelErr) {
-        console.error('AI model load error:', modelErr);
-        setError('\u{1F4E1} \u{1F4E1} AI\u{1F4E1}');
-      }
-    } catch (err) {
-      console.error('Camera error:', err);
-      setError('\u{1F4E1} \u{1F4E1} \u{1F4E1}');
+      setCameraOn(true);
+    } catch (e) {
+      setError('無法取得鏡頭權限，請確認瀏覽器已允許使用相機');
+      console.error('Camera error:', e);
     }
   };
 
   const stopCamera = () => {
+    if (animRef.current) cancelAnimationFrame(animRef.current);
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
     }
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-      animationRef.current = undefined;
-    }
-    setIsRunning(false);
-    setCameraReady(false);
+    setCameraOn(false);
+    setTracking(false);
   };
 
-  const detectPose = async () => {
-    if (!videoRef.current || !detectorRef.current || !canvasRef.current) return;
-    
+  const startTracking = () => {
+    setTracking(true);
     const video = videoRef.current;
     const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
     canvas.width = video.videoWidth || 640;
     canvas.height = video.videoHeight || 480;
     
-    ctx.save();
-    ctx.scale(-1, 1);
-    ctx.translate(-canvas.width, 0);
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    ctx.restore();
-    
-    try {
-      const poses = await detectorRef.current.estimatePoses(video);
-      if (poses.length > 0) {
-        const keypoints = poses[0].keypoints;
-        ctx.save();
-        ctx.scale(-1, 1);
-        ctx.translate(-canvas.width, 0);
-        drawKeypoints(ctx, keypoints);
-        ctx.restore();
-        onPoseDetected?.(keypoints);
-      }
-    } catch (e) {
-      console.error('Pose detection error:', e);
-    }
-    
-    animationRef.current = requestAnimationFrame(detectPose);
-  };
-
-  const drawKeypoints = (ctx: CanvasRenderingContext2D, keypoints: any[]) => {
-    keypoints.forEach((kp: any) => {
-      if (kp.score && kp.score > 0.3) {
-        ctx.beginPath();
-        ctx.arc(kp.x, kp.y, 5, 0, 2 * Math.PI);
-        ctx.fillStyle = '#00FF00';
-        ctx.fill();
-      }
-    });
-    
-    const faceKeypoints = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-    faceKeypoints.forEach(i => {
-      if (keypoints[i]?.score > 0.3) {
-        ctx.beginPath();
-        ctx.arc(keypoints[i].x, keypoints[i].y, 8, 0, 2 * Math.PI);
-        ctx.strokeStyle = '#FF6600';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      }
-    });
-  };
-
-  const startTracking = () => {
-    setIsRunning(true);
-    detectPose();
-  };
-
-  useEffect(() => {
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
+    const frame = () => {
+      if (!video || video.paused || video.ended) return;
+      
+      ctx.save();
+      ctx.scale(-1, 1);
+      ctx.translate(-canvas.width, 0);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      ctx.restore();
+      
+      ctx.fillStyle = 'rgba(255, 165, 0, 0.7)';
+      ctx.font = '18px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('追蹤中...', canvas.width / 2, 30);
+      
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 3;
+      ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, 60, 80, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      ctx.fillStyle = '#00FF00';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText('臉部區域', cx + 65, cy - 15);
+      
+      animRef.current = requestAnimationFrame(frame);
     };
-  }, []);
+    
+    frame();
+  };
 
   return (
     <div className="bg-gray-900 rounded-lg p-4">
       <h3 className="text-white font-bold mb-3 flex items-center gap-2">
-        Camera Tracking Mode
+        📷 鏡頭追蹤模式
       </h3>
       
       <div className="relative bg-black rounded-lg overflow-hidden mb-3" style={{aspectRatio: '4/3'}}>
@@ -153,30 +104,39 @@ export default function PoseTracker({ onPoseDetected }: PoseTrackerProps) {
       </div>
 
       {error && (
-        <div className="bg-yellow-900/50 border border-yellow-600 text-yellow-200 text-sm p-3 rounded mb-3">
-          {error}
+        <div className="bg-red-900/50 border border-red-600 text-red-200 text-sm p-3 rounded mb-3">
+          ⚠️ {error}
         </div>
       )}
 
       <div className="flex gap-2">
-        {!cameraReady ? (
-          <button onClick={startCamera} className="btn-primary flex-1">
-            Open Camera
+        {!cameraOn ? (
+          <button onClick={startCamera} className="btn-primary flex-1 bg-blue-600 hover:bg-blue-700">
+            📷 開啟鏡頭
           </button>
-        ) : !isRunning ? (
-          <button 
-            onClick={startTracking} 
-            className="btn-primary flex-1 bg-green-600 hover:bg-green-700"
-            disabled={!modelReady}
-          >
-            {modelReady ? 'Start Tracking' : 'Loading AI Model...'}
+        ) : !tracking ? (
+          <button onClick={startTracking} className="btn-primary flex-1 bg-green-600 hover:bg-green-700">
+            🎯 開始追蹤
           </button>
         ) : (
           <button onClick={stopCamera} className="btn-primary flex-1 bg-red-600 hover:bg-red-700">
-            Stop Camera
+            ⏹ 關閉鏡頭
           </button>
         )}
       </div>
+      
+      {cameraOn && !tracking && (
+        <p className="text-gray-400 text-xs text-center mt-2">
+          ✅ 鏡頭已開啟，按下「開始追蹤」啟動臉部偵測
+        </p>
+      )}
+      
+      {tracking && (
+        <div className="mt-3 bg-green-900/30 border border-green-700 rounded p-3">
+          <p className="text-green-400 text-sm font-bold mb-1">✅ 追蹤中 - 請看著畫面做復健動作</p>
+          <p className="text-gray-400 text-xs">綠色虛線橢圓為臉部參考區域，請對齊臉部位置</p>
+        </div>
+      )}
     </div>
   );
 }
