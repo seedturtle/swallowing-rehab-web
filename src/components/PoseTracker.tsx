@@ -96,7 +96,7 @@ export default function PoseTracker() {
       const faceLandmarksDetection = await import('@tensorflow-models/face-landmarks-detection');
       const model = await faceLandmarksDetection.createDetector(
         faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh,
-        { runtime: 'tfjs', maxFaces: 1 }
+        { runtime: 'tfjs', maxFaces: 1, refineLandmarks: true }
       );
       modelRef.current = model;
       setLoading(false);
