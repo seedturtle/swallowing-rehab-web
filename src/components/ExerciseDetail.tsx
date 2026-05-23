@@ -37,36 +37,38 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
   const [timeLeft, setTimeLeft] = useState(exercise.duration || 60);
   const [isCompleted, setIsCompleted] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [camError, setCamError] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
-
-  // 相機初始化
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'user', width: 640, height: 480 },
-        audio: false 
-      });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (err) {
-      console.error('相機開啟失敗:', err);
-    }
-  };
 
   // 開啟/關閉鏡頭
   const toggleCamera = async () => {
+    setCamError('');
     if (!showCamera) {
-      await startCamera();
+      setShowCamera(true);
+      setTimeout(async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 960 } },
+            audio: false 
+          });
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.play();
+          }
+        } catch (err: any) {
+          console.error('相機開啟失敗:', err);
+          setCamError(err.message || '無法開啟鏡頭');
+          setShowCamera(false);
+        }
+      }, 100);
     } else {
-      // 停止鏡頭
       if (videoRef.current?.srcObject) {
         const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
         tracks.forEach(track => track.stop());
         videoRef.current.srcObject = null;
       }
+      setShowCamera(false);
     }
-    setShowCamera(!showCamera);
   };
 
   useEffect(() => {
@@ -96,134 +98,56 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-4 space-y-5">
-      {/* 返回按鈕 + 分類標籤 */}
       <div className="flex items-center justify-between">
-        <button onClick={onBack}
-          className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 text-base">
-          ← 返回列表
-        </button>
-        <span className="text-sm px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 font-medium">
-          {categoryNames[exercise.category] || exercise.category}
-        </span>
+        <button onClick={onBack} className="text-blue-600 hover:text-blue-800">← 返回</button>
+        <span className="px-3 py-1 bg-cyan-100 text-cyan-700 rounded-full text-sm font-medium">{categoryNames[exercise.category]}</span>
       </div>
 
-      {/* 標題 + 圖片並排 */}
-      <div className="flex gap-5 items-start">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 flex gap-4">
+        <img src={imgSrc} alt={categoryNames[exercise.category]} className="w-20 h-20 object-cover rounded-lg" />
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className={`text-xs font-bold px-2 py-1 rounded-full ${
-              exercise.difficulty === 'basic' ? 'bg-green-100 text-green-700' :
-              exercise.difficulty === 'intermediate' ? 'bg-yellow-100 text-yellow-700' :
-              'bg-red-100 text-red-700'
-            }`}>
-              {difficultyText[exercise.difficulty] || exercise.difficulty}
-            </span>
-            <span className="text-xs text-gray-400">⏱ {exercise.duration} 秒</span>
+          <h2 className="text-xl font-bold text-gray-800">{exercise.name}</h2>
+          <p className="text-gray-600 mt-1">{exercise.instructions}</p>
+          <div className="flex gap-4 mt-2 text-sm text-gray-500">
+            <span>{difficultyText[exercise.difficulty]}</span>
+            <span>{exercise.duration}秒</span>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-1">{exercise.name}</h2>
-          <p className="text-gray-600 text-sm">{exercise.description}</p>
-        </div>
-        <div className="flex-shrink-0 w-28 h-28 rounded-xl overflow-hidden border-2 border-gray-200 bg-gray-50 shadow-sm">
-          <img src={imgSrc} alt={exercise.name}
-            className="w-full h-full object-cover" loading="lazy" />
         </div>
       </div>
 
-      {/* 步驟指示 */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-        <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-          📋 動作步驟
-        </h3>
-        <ul className="space-y-2">
-          {exercise.instructions.map((step, i) => (
-            <li key={i} className="flex items-start gap-3 text-sm text-gray-700 leading-relaxed">
-              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold mt-0.5">
-                {i + 1}
-              </span>
-              <span className="pt-0.5">{step}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* 小提醒 */}
-      {exercise.tips && exercise.tips.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-          <h4 className="font-bold text-amber-800 mb-2 text-sm flex items-center gap-1">💡 小提醒</h4>
-          <ul className="space-y-1">
-            {exercise.tips.map((tip, i) => (
-              <li key={i} className="text-sm text-amber-700 flex items-start gap-2">
-                <span className="text-amber-500">•</span>
-                <span>{tip}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* 計時器區塊 */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-bold text-gray-800 text-base">⏱ 練習計時</h3>
-          {isTimerRunning ? (
-            <span className="text-2xl font-mono font-bold text-blue-600">{timeLeft} 秒</span>
-          ) : isCompleted ? (
-            <span className="text-base font-bold text-green-600">✅ 已完成</span>
-          ) : (
-            <span className="text-sm text-gray-500">準備開始</span>
-          )}
-        </div>
-
-        {/* 進度條 */}
-        {isTimerRunning && (
-          <div className="w-full bg-gray-200 rounded-full h-3 mb-3 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-1000 ease-linear"
-              style={{ width: `${(timeLeft / (exercise.duration || 60)) * 100}%` }}
-            />
+      <div className="bg-gray-50 rounded-xl border border-gray-200 p-4">
+        <h3 className="font-bold text-gray-800 mb-3">開始練習</h3>
+        
+        {!isCompleted ? (
+          <div className="space-y-3">
+            {timeLeft > 0 && (
+              <div className="text-center text-3xl font-bold text-blue-600">{timeLeft}秒</div>
+            )}
+            <button onClick={startTimer} disabled={isTimerRunning} className="w-full py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50">{isTimerRunning ? '計時中...' : '▶ 開始計時'}</button>
+          </div>
+        ) : (
+          <div className="text-center py-4">
+            <div className="text-2xl mb-3">🎉 練習完成！</div>
+            <button onClick={() => { setIsCompleted(false); setTimeLeft(exercise.duration || 60); }} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">再練一次</button>
+            <button onClick={() => onComplete(exercise.id)} className="ml-2 px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">完成</button>
           </div>
         )}
-
-        {!isTimerRunning && !isCompleted && (
-          <button onClick={startTimer}
-            className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-base transition shadow-md">
-            ▶ 開始練習計時（{exercise.duration} 秒）
-          </button>
-        )}
-        {isTimerRunning && (
-          <button onClick={() => { setIsTimerRunning(false); setIsCompleted(true); onComplete(exercise.id); }}
-            className="w-full py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-base transition shadow-md">
-            ✓ 略過 → 標示完成
-          </button>
-        )}
-        {isCompleted && (
-          <button onClick={() => { setIsCompleted(false); setTimeLeft(exercise.duration || 60); }}
-            className="w-full py-3 rounded-xl bg-gray-600 hover:bg-gray-700 text-white font-bold text-base transition shadow-md">
-            🔄 重做
-          </button>
-        )}
       </div>
 
-      {/* 鏡頭開關 */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-        <button 
-            onClick={toggleCamera}
-            className={`px-5 py-2.5 rounded-lg font-semibold transition-all ${
-              showCamera 
-                ? 'bg-red-500 text-white hover:bg-red-600' 
-                : 'bg-emerald-500 text-white hover:bg-emerald-600'
-            }`}
-          >
-            {showCamera ? '📷 關閉鏡頭' : '📷 開啟鏡頭'}
-          </button>
+      <div className="bg-purple-50 rounded-xl border border-purple-200 p-4">
+        <button onClick={toggleCamera} className="w-full py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 flex items-center justify-center gap-2">
+          {showCamera ? '📷 關閉鏡頭' : '📷 開啟鏡頭'}
+        </button>
+        {camError && <div className="mt-2 text-red-600 text-sm">{camError}</div>}
+        
         {showCamera && (
-          <div className="px-5 pb-5">
+          <div className="mt-3 relative rounded-lg overflow-hidden bg-black" style={{ minHeight: '300px' }}>
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
             />
             <PoseTracker videoRef={videoRef} isTracking={showCamera} />
           </div>
