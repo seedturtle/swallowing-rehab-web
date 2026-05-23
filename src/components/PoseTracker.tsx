@@ -10,7 +10,7 @@ export default function PoseTracker() {
   const [cameraError, setCameraError] = useState('');
   const [loadingModel, setLoadingModel] = useState(false);
   const [faceDetected, setFaceDetected] = useState(false);
-  
+
   useEffect(() => {
     loadModels();
     return () => stopCamera();
@@ -40,7 +40,7 @@ export default function PoseTracker() {
         videoRef.current.srcObject = stream;
       }
     } catch (e) {
-      setCameraError('Cannot access camera');
+      setCameraError('無法存取鏡頭');
     }
   };
 
@@ -63,7 +63,7 @@ export default function PoseTracker() {
         canvas.height = h;
         ctx.clearRect(0, 0, w, h);
 
-        // Mirror video
+        // Draw video frame (mirrored)
         ctx.save();
         ctx.scale(-1, 1);
         ctx.drawImage(video, -w, 0, w, h);
@@ -79,68 +79,43 @@ export default function PoseTracker() {
             const box = det.detection.box;
             const landmarks = det.landmarks;
 
-            // Draw face box (mirrored)
-            ctx.save();
-            ctx.scale(-1, 1);
+            // Draw face box (mirrored position)
             ctx.strokeStyle = '#00ff00';
             ctx.lineWidth = 3;
-            ctx.strokeRect(-box.x - box.width, box.y, box.width, box.height);
-            ctx.restore();
+            ctx.strokeRect(w - box.x - box.width, box.y, box.width, box.height);
 
-            // Draw 68 landmarks (mirrored)
+            // Draw 68 landmarks (mirror X coordinate)
             const pts = landmarks.positions;
-            // Draw each point as a filled circle
-            ctx.save();
-            ctx.scale(-1, 1);
             for (let i = 0; i < pts.length; i++) {
               const pt = pts[i];
-              // Color by facial region
-              if (i < 17) { // jaw line
-                ctx.fillStyle = '#ffffff';
-              } else if (i < 22) { // left eyebrow
-                ctx.fillStyle = '#00ff00';
-              } else if (i < 27) { // right eyebrow
-                ctx.fillStyle = '#00ff00';
-              } else if (i < 31) { // nose bridge
-                ctx.fillStyle = '#ff00ff';
-              } else if (i < 36) { // nose tip
-                ctx.fillStyle = '#ff00ff';
-              } else if (i < 42) { // left eye
-                ctx.fillStyle = '#ffff00';
-              } else if (i < 48) { // right eye
-                ctx.fillStyle = '#ffff00';
-              } else if (i < 60) { // outer lips
-                ctx.fillStyle = '#ff8800';
-              } else { // inner lips
-                ctx.fillStyle = '#ff4400';
-              }
+              const mx = w - pt.x; // mirror X
+              if (i < 17) ctx.fillStyle = '#ffffff';
+              else if (i < 27) ctx.fillStyle = '#00ff00';
+              else if (i < 36) ctx.fillStyle = '#ff00ff';
+              else if (i < 48) ctx.fillStyle = '#ffff00';
+              else ctx.fillStyle = '#ff8800';
               ctx.beginPath();
-              ctx.arc(-pt.x, pt.y, 3, 0, Math.PI * 2);
+              ctx.arc(mx, pt.y, 3, 0, Math.PI * 2);
               ctx.fill();
             }
 
-            // Draw connections for eyes and mouth
-            // Left eye outline
+            // Left eye outline (mirrored)
             ctx.strokeStyle = '#ffff00';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            const leftEye = [36,37,38,39,40,41];
-            for (let i = 0; i < leftEye.length; i++) {
-              const p = pts[leftEye[i]];
-              if (i === 0) ctx.moveTo(-p.x, p.y);
-              else ctx.lineTo(-p.x, p.y);
-            }
+            [36,37,38,39,40,41].forEach((idx, i) => {
+              const p = pts[idx];
+              i === 0 ? ctx.moveTo(w - p.x, p.y) : ctx.lineTo(w - p.x, p.y);
+            });
             ctx.closePath();
             ctx.stroke();
 
             // Right eye outline
             ctx.beginPath();
-            const rightEye = [42,43,44,45,46,47];
-            for (let i = 0; i < rightEye.length; i++) {
-              const p = pts[rightEye[i]];
-              if (i === 0) ctx.moveTo(-p.x, p.y);
-              else ctx.lineTo(-p.x, p.y);
-            }
+            [42,43,44,45,46,47].forEach((idx, i) => {
+              const p = pts[idx];
+              i === 0 ? ctx.moveTo(w - p.x, p.y) : ctx.lineTo(w - p.x, p.y);
+            });
             ctx.closePath();
             ctx.stroke();
 
@@ -148,22 +123,16 @@ export default function PoseTracker() {
             ctx.strokeStyle = '#ff8800';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            const outerLip = [48,49,50,51,52,53,54,55,56,57,58,59];
-            for (let i = 0; i < outerLip.length; i++) {
-              const p = pts[outerLip[i]];
-              if (i === 0) ctx.moveTo(-p.x, p.y);
-              else ctx.lineTo(-p.x, p.y);
-            }
+            [48,49,50,51,52,53,54,55,56,57,58,59].forEach((idx, i) => {
+              const p = pts[idx];
+              i === 0 ? ctx.moveTo(w - p.x, p.y) : ctx.lineTo(w - p.x, p.y);
+            });
             ctx.closePath();
             ctx.stroke();
-
-            ctx.restore();
           } else {
             setFaceDetected(false);
           }
-        } catch (e) {
-          // detection failed
-        }
+        } catch (e) { /* detection failed */ }
       }
       animRef.current = requestAnimationFrame(draw);
     };
@@ -173,12 +142,8 @@ export default function PoseTracker() {
 
   const stopCamera = () => {
     if (animRef.current) cancelAnimationFrame(animRef.current);
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
+    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+    if (videoRef.current) videoRef.current.srcObject = null;
     if (canvasRef.current) {
       const ctx = canvasRef.current.getContext('2d');
       ctx?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
@@ -186,39 +151,60 @@ export default function PoseTracker() {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 font-sans">
+      {/* 狀態提示 */}
       {cameraError && (
-        <div className="bg-red-50 border border-red-200 rounded p-2 text-red-600 text-sm">⚠ {cameraError}</div>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-600 text-sm text-center">
+          ⚠️ {cameraError}
+        </div>
       )}
       {loadingModel && (
-        <div className="bg-blue-50 border border-blue-200 rounded p-2 text-blue-600 text-sm animate-pulse">Loading AI model...</div>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-blue-600 text-sm text-center animate-pulse">
+          🔄 正在載入 AI 模型，請稍候...
+        </div>
       )}
       {modelLoaded && !loadingModel && (
-        <div className="bg-green-50 border border-green-200 rounded p-2 text-green-700 text-sm">
-          AI model ready {faceDetected ? '✓ Face detected' : '- Look at the camera'}
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 text-sm text-center">
+          ✅ AI 模型已就緒 {faceDetected ? '👤 已偵測到臉部' : '請正視鏡頭以啟動辨識'}
         </div>
       )}
-      <div className="relative bg-black rounded-lg overflow-hidden" style={{ minHeight: 320 }}>
-        <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-contain scale-x-[-1]" />
+
+      {/* 鏡頭畫面 */}
+      <div className="relative bg-black rounded-lg overflow-hidden" style={{ minHeight: 320, maxHeight: 480 }}>
+        <video ref={videoRef} autoPlay playsInline muted
+          className="absolute inset-0 w-full h-full object-contain scale-x-[-1]" />
         <canvas ref={canvasRef} className="absolute inset-0 w-full h-full object-contain" />
+        {!streamRef.current && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-900/60">
+            <p className="text-gray-400 text-lg">按下「開啟鏡頭」啟動追蹤</p>
+          </div>
+        )}
       </div>
+
+      {/* 操作按鈕 */}
       <div className="flex gap-3">
-        <button onClick={startCamera} className="flex-1 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition">
-          Start Camera
+        <button onClick={startCamera}
+          className="flex-1 px-4 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base transition shadow-md">
+          📷 開啟鏡頭
         </button>
-        <button onClick={stopCamera} className="flex-1 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition">
-          Stop Camera
+        <button onClick={stopCamera}
+          className="flex-1 px-4 py-3 rounded-lg bg-red-500 hover:bg-red-600 text-white font-bold text-base transition shadow-md">
+          ✋ 關閉鏡頭
         </button>
       </div>
-      <div className="text-xs text-gray-500 text-center space-y-1">
-        <div className="flex justify-center gap-4">
-          <span><span className="inline-block w-3 h-3 rounded-full bg-white mr-1"></span> Jaw</span>
-          <span><span className="inline-block w-3 h-3 rounded-full bg-green-500 mr-1"></span> Eyebrow</span>
-          <span><span className="inline-block w-3 h-3 rounded-full bg-yellow-400 mr-1"></span> Eye</span>
-          <span><span className="inline-block w-3 h-3 rounded-full bg-purple-500 mr-1"></span> Nose</span>
-          <span><span className="inline-block w-3 h-3 rounded-full bg-orange-500 mr-1"></span> Mouth</span>
+
+      {/* 圖例 */}
+      {modelLoaded && !loadingModel && (
+        <div className="bg-gray-50 rounded-lg p-2 border border-gray-200">
+          <div className="flex justify-center gap-3 flex-wrap text-xs text-gray-500">
+            <span><span className="inline-block w-3 h-3 rounded-full bg-white border border-gray-300 mr-1 align-middle"></span> 下巴</span>
+            <span><span className="inline-block w-3 h-3 rounded-full bg-green-500 mr-1 align-middle"></span> 眉毛</span>
+            <span><span className="inline-block w-3 h-3 rounded-full bg-yellow-400 mr-1 align-middle"></span> 眼睛</span>
+            <span><span className="inline-block w-3 h-3 rounded-full bg-purple-500 mr-1 align-middle"></span> 鼻子</span>
+            <span><span className="inline-block w-3 h-3 rounded-full bg-orange-500 mr-1 align-middle"></span> 嘴巴</span>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
