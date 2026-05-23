@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Exercise } from '../data/types';
 import { categories } from '../data/exercises';
 import PoseTracker from './PoseTracker';
@@ -16,22 +16,30 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
   const [repetitions, setRepetitions] = useState(exercise.repetitions ?? 10);
   const [showCamera, setShowCamera] = useState(false);
 
+  const timerRef = useRef<ReturnType<typeof setInterval>>();
+  const [completedRef] = useState(() => ({ current: false }));
+
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
     if (isTimerRunning && timeLeft > 0) {
-      interval = setInterval(() => {
+      timerRef.current = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
             setIsTimerRunning(false);
             setIsCompleted(true);
+            completedRef.current = true;
             return 0;
           }
           return prev - 1;
         });
       }, 1000);
     }
-    return () => { if (interval) clearInterval(interval); };
-  }, [isTimerRunning, timeLeft]);
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = undefined;
+      }
+    };
+  }, [isTimerRunning]);
 
   const handleStartTimer = () => {
     setTimeLeft(exercise.duration);
