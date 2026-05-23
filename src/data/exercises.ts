@@ -115,7 +115,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'lip-2',
-    name: '嘴唇張開闭合',
+    name: '嘴唇張開閉合',
     category: 'lip',
     difficulty: 'basic',
     duration: 45,
