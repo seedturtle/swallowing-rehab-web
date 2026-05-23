@@ -44,12 +44,6 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
     setIsCompleted(false);
   };
 
-  const _handleComplete = () => {
-    setIsCompleted(true);
-    setIsTimerRunning(false);
-    setTimeLeft(0);
-    onComplete(exercise.id);
-  };
 
   const imgSrc = categoryImages[exercise.category] || '/images/cartoon_facial.jpg';
 
