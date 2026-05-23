@@ -96,6 +96,7 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
 
   const imgSrc = categoryImages[exercise.category] || '/images/cartoon_facial.jpg';
   const videoSrc = (exercise as any).videoUrl;
+  const [showVideoPlayer, setShowVideoPlayer] = useState(false);
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-4 space-y-5">
@@ -104,20 +105,23 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
         <span className="px-3 py-1 bg-cyan-100 text-cyan-700 rounded-full text-sm font-medium">{categoryNames[exercise.category]}</span>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4 flex gap-4">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 flex gap-4 items-start">
         {videoSrc ? (
-          <video 
-            src={videoSrc} 
-            autoPlay 
-            loop 
-            muted 
-            playsInline
-            className="w-full max-w-md rounded-lg"
-          />
+          <div className="relative w-24 h-24 flex-shrink-0 cursor-pointer" onClick={() => setShowVideoPlayer(!showVideoPlayer)}>
+            <video 
+              src={videoSrc} 
+              muted
+              playsInline
+              className="w-full h-full object-cover rounded-lg"
+            />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg">
+              <span className="text-2xl">▶️</span>
+            </div>
+          </div>
         ) : (
-          <img src={imgSrc} alt={categoryNames[exercise.category]} className="w-20 h-20 object-cover rounded-lg" />
+          <img src={imgSrc} alt={categoryNames[exercise.category]} className="w-20 h-20 object-cover rounded-lg flex-shrink-0" />
         )}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <h2 className="text-xl font-bold text-gray-800">{exercise.name}</h2>
           <p className="text-gray-600 mt-1">{exercise.description}</p>
           <div className="flex gap-4 mt-2 text-sm text-gray-500">
@@ -126,6 +130,27 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
           </div>
         </div>
       </div>
+
+      {/* 影片播放器 */}
+      {videoSrc && showVideoPlayer && (
+        <div className="bg-black rounded-xl overflow-hidden">
+          <video 
+            src={videoSrc} 
+            controls
+            autoPlay
+            playsInline
+            className="w-full max-h-[70vh] object-contain"
+          />
+          <div className="flex justify-end p-2">
+            <button 
+              onClick={() => setShowVideoPlayer(false)}
+              className="text-white/60 text-sm hover:text-white"
+            >
+              關閉影片 ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 詳細步驟說明 */}
       {exercise.instructions && exercise.instructions.length > 0 && (
