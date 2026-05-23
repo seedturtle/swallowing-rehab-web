@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Exercise } from '../data/types';
 import { categories } from '../data/exercises';
-import PoseTracker from './PoseTracker';
+
 
 interface ExerciseDetailProps {
   exercise: Exercise;
@@ -100,7 +100,7 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
               {showCamera ? '關閉' : '開啟'}
             </button>
           </div>
-          {showCamera && <PoseTracker />}
+          {showCamera && }
         </div>
 
         {/* Tips */}
