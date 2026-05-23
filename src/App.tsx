@@ -13,11 +13,18 @@ function App() {
   const [currentView, setCurrentView] = useState<View>('home');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
-  const [progress, setProgress] = useState<PatientProgress[]>([]);
+  const [progress, setProgress] = useState<PatientProgress[]>(() => {
+    // 從 localStorage 讀取（不同裝置各自保存）
+    try {
+      const saved = localStorage.getItem('swallow-rehab-progress');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
 
-  // 關閉網頁即重置進度，不同使用者不互相干擾
   const saveProgress = (newProgress: PatientProgress[]) => {
     setProgress(newProgress);
+    localStorage.setItem('swallow-rehab-progress', JSON.stringify(newProgress));
   };
 
   const completeExercise = (exerciseId: string, repetitions?: number) => {
