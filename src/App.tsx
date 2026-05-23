@@ -39,6 +39,14 @@ function App() {
     }]);
   };
 
+  const handleNavigate = (view: View) => {
+    if (view === 'home') {
+      setSelectedExercise(null);
+      setSelectedCategory('all');
+    }
+    setCurrentView(view);
+  };
+
   const handleBack = () => {
     setSelectedExercise(null);
     setCurrentView('home');
@@ -51,11 +59,11 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-      <Header onNavigate={setCurrentView} currentView={currentView} />
+      <Header onNavigate={handleNavigate} currentView={currentView} />
 
       {currentView === 'progress' && (
         <div className="p-4">
-          <button onClick={() => setCurrentView('home')} className="mb-4 px-4 py-2 bg-blue-600 text-white rounded-lg">
+          <button onClick={() => handleNavigate('home')} className="mb-4 px-4 py-2 bg-blue-600 text-white rounded-lg">
             ← 返回
           </button>
           <ProgressTracker progress={progress} exercises={exercises} />
