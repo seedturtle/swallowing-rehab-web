@@ -107,15 +107,10 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
 
       <div className="bg-white rounded-xl border border-gray-200 p-4 flex gap-4 items-start">
         {videoSrc ? (
-          <div className="relative w-24 h-24 flex-shrink-0 cursor-pointer" onClick={() => setShowVideoPlayer(!showVideoPlayer)}>
-            <video 
-              src={videoSrc} 
-              muted
-              playsInline
-              className="w-full h-full object-cover rounded-lg"
-            />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg">
-              <span className="text-2xl">▶️</span>
+          <div className="relative w-20 h-20 flex-shrink-0 cursor-pointer" onClick={() => setShowVideoPlayer(true)}>
+            <img src={imgSrc} alt={categoryNames[exercise.category]} className="w-full h-full object-cover rounded-lg" />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-lg">
+              <span className="text-xl">▶️</span>
             </div>
           </div>
         ) : (
@@ -128,6 +123,14 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
             <span>{difficultyText[exercise.difficulty]}</span>
             <span>{exercise.duration}秒</span>
           </div>
+          {videoSrc && !showVideoPlayer && (
+            <button 
+              onClick={() => setShowVideoPlayer(true)}
+              className="mt-2 text-sm text-blue-600 font-medium hover:text-blue-800"
+            >
+              🎬 觀看示範影片
+            </button>
+          )}
         </div>
       </div>
 
@@ -135,6 +138,7 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
       {videoSrc && showVideoPlayer && (
         <div className="bg-black rounded-xl overflow-hidden">
           <video 
+            key={exercise.id}
             src={videoSrc} 
             controls
             autoPlay
