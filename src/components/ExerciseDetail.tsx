@@ -1,200 +1,166 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Exercise } from '../data/types';
-import PoseTracker from './PoseTracker';
-import { categories } from '../data/exercises';
-
 
 interface ExerciseDetailProps {
   exercise: Exercise;
   onBack: () => void;
-  onComplete: (exerciseId: string, repetitions?: number) => void;
+  onComplete: (exerciseId: string) => void;
 }
 
+const categoryImages: Record<string, string> = {
+  facial: '/images/cartoon_facial.jpg',
+  tongue: '/images/cartoon_tongue.jpg',
+  lip: '/images/cartoon_lip.jpg',
+  chewing: '/images/cartoon_facial.jpg',
+  swallow: '/images/cartoon_tongue.jpg',
+  posture: '/images/cartoon_lip.jpg',
+};
+
 export default function ExerciseDetail({ exercise, onBack, onComplete }: ExerciseDetailProps) {
-  const [timeLeft, setTimeLeft] = useState(exercise.duration);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(exercise.duration || 60);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [repetitions, setRepetitions] = useState(exercise.repetitions ?? 10);
   const [showCamera, setShowCamera] = useState(false);
 
-  const timerRef = useRef<ReturnType<typeof setInterval>>();
-  const [completedRef] = useState(() => ({ current: false }));
-
   useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (isTimerRunning && timeLeft > 0) {
-      timerRef.current = setInterval(() => {
-        setTimeLeft((prev) => {
+      interval = setInterval(() => {
+        setTimeLeft(prev => {
           if (prev <= 1) {
             setIsTimerRunning(false);
-            setIsCompleted(true);
-            completedRef.current = true;
             return 0;
           }
           return prev - 1;
         });
       }, 1000);
     }
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = undefined;
-      }
-    };
-  }, [isTimerRunning]);
+    return () => { if (interval) clearInterval(interval); };
+  }, [isTimerRunning, timeLeft]);
 
-  const handleStartTimer = () => {
-    setTimeLeft(exercise.duration);
-    setIsCompleted(false);
+  const startTimer = () => {
+    setTimeLeft(exercise.duration || 60);
     setIsTimerRunning(true);
-  };
-
-  const handleCancelTimer = () => {
-    setIsTimerRunning(false);
-    setTimeLeft(exercise.duration);
+    setIsCompleted(false);
   };
 
   const handleComplete = () => {
-    onComplete(exercise.id, repetitions);
-    setIsCompleted(false);
-    setTimeLeft(exercise.duration);
+    setIsCompleted(true);
+    setIsTimerRunning(false);
+    setTimeLeft(0);
+    onComplete(exercise.id);
   };
 
-  const progress = exercise.duration > 0 
-    ? ((exercise.duration - timeLeft) / exercise.duration) * 100 
-    : 0;
+  const imgSrc = categoryImages[exercise.category] || '/images/cartoon_facial.jpg';
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="bg-gradient-to-r from-[#003366] to-[#006699] text-white p-4">
-        <button onClick={onBack} className="text-white mb-2">{'\u2190'} 返回列表</button>
-        <h1 className="text-xl font-bold">{exercise.name}</h1>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <button onClick={onBack} className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+          ← Back
+        </button>
+        <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 font-medium">
+          {exercise.categoryLabel || exercise.category}
+        </span>
       </div>
 
-      <div className="p-4 space-y-4">
-        <div className="bg-white rounded-lg shadow-md p-4">
-          <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm mb-2">
-            {categories.find(c => c.id === exercise.category)?.name}
-          </span>
-          <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-            <span className="text-xl">{'\ud83d\udccb'}</span> 動作指示
-          </h3>
-          <ol className="space-y-3">
-            {exercise.instructions.map((instruction, index) => (
-              <li key={index} className="flex gap-3">
-                <span className="flex-shrink-0 w-8 h-8 bg-[#003366] text-white rounded-full flex items-center justify-center font-bold">
-                  {index + 1}
-                </span>
-                <span className="text-gray-700 pt-1">{instruction}</span>
+      {/* Title + Image side by side */}
+      <div className="flex gap-4">
+        <div className="flex-1">
+          <h2 className="text-xl font-bold text-gray-900 mb-1">{exercise.name}</h2>
+          <p className="text-gray-600 text-sm">{exercise.description}</p>
+        </div>
+        <div className="flex-shrink-0 w-28 h-28 rounded-xl overflow-hidden border-2 border-gray-200 bg-gray-50">
+          <img
+            src={imgSrc}
+            alt={exercise.name}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+        </div>
+      </div>
+
+      {/* Instructions */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+          Instructions
+        </h3>
+        <ul className="space-y-2">
+          {exercise.instructions.map((step, i) => (
+            <li key={i} className="flex items-start gap-3 text-sm text-gray-700">
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">
+                {i + 1}
+              </span>
+              <span className="pt-1">{step}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Tips */}
+      {exercise.tips && exercise.tips.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <h4 className="font-bold text-amber-800 mb-2 text-sm">Tips</h4>
+          <ul className="space-y-1">
+            {exercise.tips.map((tip, i) => (
+              <li key={i} className="text-sm text-amber-700 flex items-start gap-2">
+                <span>💡</span>
+                <span>{tip}</span>
               </li>
             ))}
-          </ol>
+          </ul>
         </div>
+      )}
 
-        {/* Camera Tracking */}
-        <div className="bg-white rounded-lg shadow-md p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold text-gray-800 flex items-center gap-2">{'\ud83c\udfa5'} 鏡頭追蹤模式</h3>
-            <button 
-              onClick={() => setShowCamera(!showCamera)}
-              className={'px-3 py-1 rounded-full text-sm ' + (showCamera ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600')}
-            >
-              {showCamera ? '關閉' : '開啟'}
-            </button>
-          {showCamera && <PoseTracker />}
-          </div>
-          
+      {/* Timer */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm font-medium text-gray-600">Duration: {exercise.duration}s</span>
+          {isTimerRunning && (
+            <span className="text-2xl font-bold text-blue-600">{timeLeft}s</span>
+          )}
+          {isCompleted && (
+            <span className="text-base font-bold text-green-600">✓ Completed</span>
+          )}
         </div>
-
-        {/* Tips */}
-        {(exercise.tips ?? []).length > 0 && (
-          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
-            <h3 className="font-bold text-yellow-800 mb-2">{'\ud83d\udca1'} 小技巧</h3>
-            <ul className="space-y-1">
-              {exercise.tips!.map((tip, index) => (
-                <li key={index} className="text-yellow-700 text-sm flex gap-2">
-                  <span>{'\u2022'}</span>
-                  <span>{tip}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Timer Section */}
-        {exercise.duration > 0 && (
-          <div className="bg-white rounded-lg shadow-md p-4">
-            <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-              {'\u23f1\ufe0f'} 計時練習
-            </h3>
-            <div className="text-center mb-4">
-              <div className={'text-6xl font-bold ' + (isTimerRunning ? 'text-[#003366]' : 'text-gray-400')}>
-                {timeLeft}s
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-3 mt-3">
-                <div 
-                  className="bg-gradient-to-r from-[#003366] to-[#006699] h-3 rounded-full transition-all duration-1000"
-                  style={{ width: progress + '%' }}
-                />
-              </div>
-              {isTimerRunning && (
-                <p className="text-sm text-[#003366] mt-2 animate-pulse">倒數中...</p>
-              )}
-            </div>
-            <div className="flex gap-3">
-              {!isTimerRunning && !isCompleted && (
-                <button onClick={handleStartTimer} className="btn-primary flex-1">
-                  {'\u25b6\ufe0f'} 開始練習計時
-                </button>
-              )}
-              {isTimerRunning && (
-                <button onClick={handleCancelTimer} className="btn-primary flex-1 bg-gray-500">
-                  {'\u274c'} 取消計時
-                </button>
-              )}
-              {isCompleted && (
-                <button onClick={handleComplete} className="btn-primary flex-1 bg-green-600">
-                  {'\u2713'} 完成練習！
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Repetition Section */}
-        {(exercise.repetitions ?? 0) > 0 && (
-          <div className="bg-white rounded-lg shadow-md p-4">
-            <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-              {'\ud83d\udd04'} 目標次數
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">目標次數</label>
-                <input 
-                  type="number" 
-                  value={repetitions} 
-                  onChange={(e) => setRepetitions(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-full p-3 border-2 border-gray-300 rounded-lg text-center text-xl"
-                  min="1"
-                />
-              </div>
-              <div className="flex items-center justify-center text-4xl">
-                / {(exercise.repetitions ?? 10)}
-              </div>
-            </div>
-            {!isTimerRunning && !isCompleted && (
-              <button onClick={handleComplete} className="btn-primary w-full mt-4">
-                {'\u2713'} 完成 {repetitions} 次
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Simple Complete Button */}
-        {exercise.duration === 0 && ((exercise.repetitions ?? 0) === 0) && (
-          <button onClick={() => onComplete(exercise.id)} className="btn-primary w-full">
-            {'\u2713'} 完成練習
+        {!isTimerRunning && !isCompleted && (
+          <button onClick={startTimer} className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition">
+            Start Timer ({exercise.duration}s)
           </button>
         )}
+        {isTimerRunning && (
+          <div className="space-y-2">
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="bg-blue-600 h-2 rounded-full transition-all duration-1000" style={{ width: `${(timeLeft / (exercise.duration || 60)) * 100}%` }} />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => { setIsTimerRunning(false); setIsCompleted(true); onComplete(exercise.id); }} className="flex-1 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium transition">
+                Done ✓
+              </button>
+              <button onClick={() => { setIsTimerRunning(false); setTimeLeft(exercise.duration || 60); }} className="flex-1 py-2.5 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium transition">
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+        {isCompleted && (
+          <button onClick={() => { setIsCompleted(false); setTimeLeft(exercise.duration || 60); }} className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition">
+            Practice Again
+          </button>
+        )}
+      </div>
+
+      {/* Camera Toggle */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <button onClick={() => setShowCamera(!showCamera)} className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition">
+          <span className="font-medium text-sm text-gray-700">
+            {showCamera ? 'Hide Camera' : 'Show Camera'}
+          </span>
+          <span className={`px-3 py-1 rounded-full text-xs font-medium ${showCamera ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+            {showCamera ? 'ON' : 'OFF'}
+          </span>
+        </button>
       </div>
     </div>
   );
