@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Header from './components/Header';
 import CategoryNav from './components/CategoryNav';
 import ExerciseList from './components/ExerciseList';
@@ -15,16 +15,9 @@ function App() {
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
   const [progress, setProgress] = useState<PatientProgress[]>([]);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('swallow-rehab-progress');
-    if (saved) {
-      try { setProgress(JSON.parse(saved)); } catch {}
-    }
-  }, []);
-
+  // 關閉網頁即重置進度，不同使用者不互相干擾
   const saveProgress = (newProgress: PatientProgress[]) => {
     setProgress(newProgress);
-    localStorage.setItem('swallow-rehab-progress', JSON.stringify(newProgress));
   };
 
   const completeExercise = (exerciseId: string, repetitions?: number) => {
