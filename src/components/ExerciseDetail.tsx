@@ -39,6 +39,36 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
   const [showCamera, setShowCamera] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // 相機初始化
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'user', width: 640, height: 480 },
+        audio: false 
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.error('相機開啟失敗:', err);
+    }
+  };
+
+  // 開啟/關閉鏡頭
+  const toggleCamera = async () => {
+    if (!showCamera) {
+      await startCamera();
+    } else {
+      // 停止鏡頭
+      if (videoRef.current?.srcObject) {
+        const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+        tracks.forEach(track => track.stop());
+        videoRef.current.srcObject = null;
+      }
+    }
+    setShowCamera(!showCamera);
+  };
+
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;
     if (isTimerRunning && timeLeft > 0) {
@@ -176,18 +206,16 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
 
       {/* 鏡頭開關 */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-        <button onClick={() => setShowCamera(!showCamera)}
-          className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition">
-          <span className="font-bold text-gray-800 text-base flex items-center gap-2">
-            📷 鏡頭追蹤
-            <span className="text-xs text-gray-400 font-normal">（配合動作檢查）</span>
-          </span>
-          <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-            showCamera ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-          }`}>
-            {showCamera ? '開啟中' : '已關閉'}
-          </span>
-        </button>
+        <button 
+            onClick={toggleCamera}
+            className={`px-5 py-2.5 rounded-lg font-semibold transition-all ${
+              showCamera 
+                ? 'bg-red-500 text-white hover:bg-red-600' 
+                : 'bg-emerald-500 text-white hover:bg-emerald-600'
+            }`}
+          >
+            {showCamera ? '📷 關閉鏡頭' : '📷 開啟鏡頭'}
+          </button>
         {showCamera && (
           <div className="px-5 pb-5">
             <video ref={videoRef} autoPlay playsInline className="hidden" />
