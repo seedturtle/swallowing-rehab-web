@@ -51,7 +51,7 @@ export const exercises: Exercise[] = [
     instructions: [
       '坐直或站直',
       '慢慢將舌頭伸出嘴巴',
-      '尽量伸出到最长',
+      '盡量伸出到最长',
       '維持 3-5 秒',
       '慢慢收回舌頭',
       '重複 10 次',
