@@ -100,7 +100,7 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
               {showCamera ? '關閉' : '開啟'}
             </button>
           </div>
-          {showCamera && }
+          
         </div>
 
         {/* Tips */}
