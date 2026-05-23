@@ -95,6 +95,7 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
   };
 
   const imgSrc = categoryImages[exercise.category] || '/images/cartoon_facial.jpg';
+  const videoSrc = (exercise as any).videoUrl;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-4 space-y-5">
@@ -104,7 +105,18 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-4 flex gap-4">
-        <img src={imgSrc} alt={categoryNames[exercise.category]} className="w-20 h-20 object-cover rounded-lg" />
+        {videoSrc ? (
+          <video 
+            src={videoSrc} 
+            autoPlay 
+            loop 
+            muted 
+            playsInline
+            className="w-full max-w-md rounded-lg"
+          />
+        ) : (
+          <img src={imgSrc} alt={categoryNames[exercise.category]} className="w-20 h-20 object-cover rounded-lg" />
+        )}
         <div className="flex-1">
           <h2 className="text-xl font-bold text-gray-800">{exercise.name}</h2>
           <p className="text-gray-600 mt-1">{exercise.description}</p>
