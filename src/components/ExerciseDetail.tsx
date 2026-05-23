@@ -161,7 +161,7 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
         )}
 
         {/* Repetition Section */}
-        {exercise.repetitions > 0 && (
+        {exercise.repetitions {exercise.repetitions > 0 && ({exercise.repetitions > 0 && ( exercise.repetitions > 0 && (
           <div className="bg-white rounded-lg shadow-md p-4">
             <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
               🔄 目標次數
@@ -190,7 +190,7 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
         )}
 
         {/* Complete Button */}
-        {exercise.duration === 0 && exercise.repetitions === 0 && (
+        {exercise.duration === 0 && (!exercise.repetitions || exercise.repetitions === 0) && (
           <button onClick={() => onComplete(exercise.id)} className="btn-primary w-full">
             ✓ 完成練習
           </button>
