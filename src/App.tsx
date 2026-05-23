@@ -27,7 +27,7 @@ function App() {
     localStorage.setItem('swallow-rehab-progress', JSON.stringify(newProgress));
   };
 
-  const completeExercise = (exerciseId: string, duration: number, reps: number) => {
+  const completeExercise = (exerciseId: string, repetitions?: number, duration?: number) => {
     const now = new Date().toISOString().split('T')[0];
     const existing = progress.find(p => p.date === now && p.exerciseId === exerciseId);
     
