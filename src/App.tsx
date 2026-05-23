@@ -59,7 +59,7 @@ function App() {
           <button onClick={() => handleNavigate('home')} className="mb-4 px-4 py-2 bg-blue-600 text-white rounded-lg">
             ← 返回
           </button>
-          <ProgressTracker progress={progress} exercises={exercises} />
+          <ProgressTracker progress={progress} exercises={exercises} onReset={() => saveProgress([])} />
         </div>
       )}
 

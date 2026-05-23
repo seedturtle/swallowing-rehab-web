@@ -3,6 +3,7 @@ import { PatientProgress, Exercise } from '../data/types';
 interface ProgressTrackerProps {
   progress: PatientProgress[];
   exercises: Exercise[];
+  onReset?: () => void;
 }
 
 function todayStr() {
@@ -15,7 +16,7 @@ function formatDateTime(iso: string) {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-export default function ProgressTracker({ progress, exercises }: ProgressTrackerProps) {
+export default function ProgressTracker({ progress, exercises, onReset }: ProgressTrackerProps) {
   // Get last 7 days
   const getLast7Days = () => {
     const days = [];
@@ -119,6 +120,18 @@ export default function ProgressTracker({ progress, exercises }: ProgressTracker
         >
           📥 匯出記錄
         </button>
+        {onReset && progress.length > 0 && (
+          <button
+            onClick={() => {
+              if (window.confirm('確定要清除所有練習記錄？')) {
+                onReset();
+              }
+            }}
+            className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600"
+          >
+            🗑️ 重置
+          </button>
+        )}
       </div>
 
       {/* Today's Stats */}
