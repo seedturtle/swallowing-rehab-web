@@ -22,6 +22,7 @@ export const exercises: Exercise[] = [
       '可在刷牙時順便練習',
       '注意兩側臉頰是否對稱',
     ],
+    videoUrl: "/videos/facial-demo.mp4",
   },
   {
     id: 'facial-2',
