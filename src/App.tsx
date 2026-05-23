@@ -21,7 +21,7 @@ function App() {
   };
 
   const completeExercise = (exerciseId: string, repetitions?: number) => {
-    const now = new Date().toISOString().split('T')[0];
+    const now = new Date().toISOString();
 
     saveProgress([...progress, {
       date: now,

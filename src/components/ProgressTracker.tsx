@@ -5,6 +5,16 @@ interface ProgressTrackerProps {
   exercises: Exercise[];
 }
 
+function todayStr() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function formatDateTime(iso: string) {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 export default function ProgressTracker({ progress, exercises }: ProgressTrackerProps) {
   // Get last 7 days
   const getLast7Days = () => {
@@ -22,13 +32,13 @@ export default function ProgressTracker({ progress, exercises }: ProgressTracker
 
   const last7Days = getLast7Days();
 
-  const getCompletedForDate = (date: string) => {
-    return progress.filter(p => p.date === date && p.completed).length;
+  const getCompletedForDate = (dateStr: string) => {
+    return progress.filter(p => p.date && p.date.startsWith(dateStr) && p.completed).length;
   };
 
   const getTodayStats = () => {
-    const today = new Date().toISOString().split('T')[0];
-    const todayProgress = progress.filter(p => p.date === today && p.completed);
+    const today = todayStr();
+    const todayProgress = progress.filter(p => p.date && p.date.startsWith(today) && p.completed);
     return {
       completed: todayProgress.length,
       total: exercises.length,
@@ -48,9 +58,68 @@ export default function ProgressTracker({ progress, exercises }: ProgressTracker
   const todayStats = getTodayStats();
   const weeklyStats = getWeeklyStats();
 
+  // 匯出功能
+  const handleExport = () => {
+    const completed = progress.filter(p => p.completed);
+    if (completed.length === 0) {
+      alert('尚無任何練習記錄可匯出');
+      return;
+    }
+
+    const now = formatDateTime(new Date().toISOString());
+    const lines: string[] = [];
+    lines.push('========================================');
+    lines.push('  吞嚥復健 — 練習記錄');
+    lines.push(`  匯出時間：${now}`);
+    lines.push('========================================');
+    lines.push('');
+
+    // 依日期分組
+    const grouped: Record<string, typeof completed> = {};
+    for (const item of completed) {
+      const day = item.date.split('T')[0];
+      if (!grouped[day]) grouped[day] = [];
+      grouped[day].push(item);
+    }
+
+    for (const [day, items] of Object.entries(grouped).sort()) {
+      lines.push(`📅 ${day}`);
+      lines.push('----------------------------------------');
+      for (const item of items) {
+        const exercise = exercises.find(e => e.id === item.exerciseId);
+        const ts = formatDateTime(item.date);
+        const reps = item.repetitions ? ` | ${item.repetitions} 次` : '';
+        const dur = item.duration ? ` | ${item.duration}秒` : '';
+        lines.push(`  ${ts}  ${exercise?.name || item.exerciseId}${reps}${dur}`);
+      }
+      lines.push('');
+    }
+
+    lines.push('========================================');
+    lines.push(`總計完成 ${completed.length} 項練習`);
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `復健記錄_${todayStr()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="max-w-3xl mx-auto">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">我的進度</h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">我的進度</h2>
+        <button
+          onClick={handleExport}
+          className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700"
+        >
+          📥 匯出記錄
+        </button>
+      </div>
 
       {/* Today's Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -127,11 +196,7 @@ export default function ProgressTracker({ progress, exercises }: ProgressTracker
               .reverse()
               .map((item, index) => {
                 const exercise = exercises.find(e => e.id === item.exerciseId);
-                const date = new Date(item.date);
-                const dateStr = date.toLocaleDateString('zh-TW', {
-                  month: 'numeric',
-                  day: 'numeric',
-                });
+                const timeStr = formatDateTime(item.date);
                 
                 return (
                   <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
@@ -140,7 +205,7 @@ export default function ProgressTracker({ progress, exercises }: ProgressTracker
                     </div>
                     <div className="flex-1">
                       <p className="font-medium text-gray-800">{exercise?.name}</p>
-                      <p className="text-sm text-gray-500">{dateStr}</p>
+                      <p className="text-sm text-gray-500">{timeStr}</p>
                     </div>
                     {item.repetitions && (
                       <span className="text-sm text-gray-500">
