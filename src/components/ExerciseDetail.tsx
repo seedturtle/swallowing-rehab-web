@@ -107,13 +107,43 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
         <img src={imgSrc} alt={categoryNames[exercise.category]} className="w-20 h-20 object-cover rounded-lg" />
         <div className="flex-1">
           <h2 className="text-xl font-bold text-gray-800">{exercise.name}</h2>
-          <p className="text-gray-600 mt-1">{exercise.instructions}</p>
+          <p className="text-gray-600 mt-1">{exercise.description}</p>
           <div className="flex gap-4 mt-2 text-sm text-gray-500">
             <span>{difficultyText[exercise.difficulty]}</span>
             <span>{exercise.duration}秒</span>
           </div>
         </div>
       </div>
+
+      {/* 詳細步驟說明 */}
+      {exercise.instructions && exercise.instructions.length > 0 && (
+        <div className="bg-blue-50 rounded-xl border border-blue-200 p-4">
+          <h3 className="font-bold text-blue-800 mb-3">📋 練習步驟</h3>
+          <ol className="space-y-2">
+            {exercise.instructions.map((step, idx) => (
+              <li key={idx} className="flex gap-2 text-gray-700">
+                <span className="font-bold text-blue-600">{idx + 1}.</span>
+                <span>{step}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {/* 技巧提示 */}
+      {exercise.tips && exercise.tips.length > 0 && (
+        <div className="bg-amber-50 rounded-xl border border-amber-200 p-4">
+          <h3 className="font-bold text-amber-800 mb-3">💡 小技巧</h3>
+          <ul className="space-y-1">
+            {exercise.tips.map((tip, idx) => (
+              <li key={idx} className="flex gap-2 text-gray-700">
+                <span className="text-amber-600">•</span>
+                <span>{tip}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="bg-gray-50 rounded-xl border border-gray-200 p-4">
         <h3 className="font-bold text-gray-800 mb-3">開始練習</h3>
