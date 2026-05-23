@@ -26,6 +26,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'facial-2',
+    videoUrl: 'https://drive.google.com/uc?export=download&id=11vLQE-mXc0aqZqgsqmowacsx4aal0qivreq',
     name: '下巴開合運動',
     category: 'facial',
     difficulty: 'basic',
