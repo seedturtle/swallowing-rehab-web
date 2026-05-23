@@ -120,14 +120,15 @@ export default function ProgressTracker({ progress, exercises, onReset }: Progre
         >
           📥 匯出記錄
         </button>
-        {onReset && progress.length > 0 && (
+        {onReset && (
           <button
             onClick={() => {
               if (window.confirm('確定要清除所有練習記錄？')) {
                 onReset();
               }
             }}
-            className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600"
+            className="px-3 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 disabled:opacity-40"
+            disabled={progress.length === 0}
           >
             🗑️ 重置
           </button>
