@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { usePreloadModel } from './hooks/usePreloadModel';
 import Header from './components/Header';
 import CategoryNav from './components/CategoryNav';
 import ExerciseList from './components/ExerciseList';
@@ -11,13 +10,11 @@ import { exercises, categories } from './data/exercises';
 type View = 'home' | 'exercise' | 'progress';
 
 function App() {
-  const [currentView, setCurrentView] = useState<View>(const { model: preloadedModel } = usePreloadModel();
-  'home');
+  const [currentView, setCurrentView] = useState<View>('home');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
   const [progress, setProgress] = useState<PatientProgress[]>([]);
 
-  // Load progress from localStorage
   useEffect(() => {
     const saved = localStorage.getItem('swallow-rehab-progress');
     if (saved) {
@@ -25,81 +22,91 @@ function App() {
     }
   }, []);
 
-  // Save progress to localStorage
-  useEffect(() => {
-    localStorage.setItem('swallow-rehab-progress', JSON.stringify(progress));
-  }, [progress]);
-
-  const filteredExercises = selectedCategory === 'all'
-    ? exercises
-    : exercises.filter(e => e.category === selectedCategory);
-
-  const handleExerciseClick = (exercise: Exercise) => {
-    setSelectedExercise(exercise);
-    setCurrentView('exercise');
+  const saveProgress = (newProgress: PatientProgress[]) => {
+    setProgress(newProgress);
+    localStorage.setItem('swallow-rehab-progress', JSON.stringify(newProgress));
   };
 
-  const handleCompleteExercise = (exerciseId: string, repetitions?: number) => {
-    const today = new Date().toISOString().split('T')[0];
-    const existing = progress.find(p => p.exerciseId === exerciseId && p.date === today);
+  const completeExercise = (exerciseId: string, duration: number, reps: number) => {
+    const now = new Date().toISOString().split('T')[0];
+    const existing = progress.find(p => p.date === now && p.exerciseId === exerciseId);
     
     if (existing) {
-      setProgress(progress.filter(p => !(p.exerciseId === exerciseId && p.date === today)));
+      saveProgress(progress.map(p => 
+        p.date === now && p.exerciseId === exerciseId
+          ? { ...p, completedSessions: p.completedSessions + 1, totalDuration: p.totalDuration + duration }
+          : p
+      ));
+    } else {
+      saveProgress([...progress, {
+        date: now,
+        exerciseId,
+        completedSessions: 1,
+        totalDuration: duration
+      }]);
     }
-    
-    const newProgress: PatientProgress = {
-      exerciseId,
-      date: today,
-      completed: true,
-      repetitions,
-    };
-    setProgress([...progress, newProgress]);
+  };
+
+  const getTodayProgress = () => {
+    const today = new Date().toISOString().split('T')[0];
+    return progress.filter(p => p.date === today);
+  };
+
+  const handleBack = () => {
+    setSelectedExercise(null);
+    setCurrentView('home');
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <Header onNavigate={setCurrentView} currentView={currentView} />
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      <Header />
       
-      <main className="container mx-auto px-4 py-6">
-        {currentView === 'home' && (
-          <>
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">復健項目</h2>
-              <p className="text-gray-600">選擇下方分類開始您的居家復健之旅</p>
-            </div>
-            
-            <CategoryNav
-              categories={categories}
-              selected={selectedCategory}
-              onSelect={setSelectedCategory}
-            />
-            
-            <ExerciseList
-              exercises={filteredExercises}
-              onExerciseClick={handleExerciseClick}
-              progress={progress}
-            />
-          </>
-        )}
-        
-        {currentView === 'exercise' && selectedExercise && (
-          <ExerciseDetail
-            exercise={selectedExercise}
-            onBack={() => setCurrentView('home')}
-            onComplete={handleCompleteExercise}
-          />
-        )}
-        
-        {currentView === 'progress' && (
+      {currentView === 'progress' && (
+        <div className="p-4">
+          <button onClick={() => setCurrentView('home')} className="mb-4 px-4 py-2 bg-blue-600 text-white rounded-lg">
+            ← 返回
+          </button>
           <ProgressTracker progress={progress} exercises={exercises} />
-        )}
-      </main>
-      
-      <footer className="bg-gray-800 text-white py-4 mt-8">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-sm"> Mennonite Christian Hospital · 吞嚥復健系統</p>
         </div>
-      </footer>
+      )}
+
+      {currentView === 'home' && !selectedExercise && (
+        <div className="p-4">
+          <div className="text-center mb-6">
+            <p className="text-gray-600 text-sm">選擇復健項目開始練習</p>
+          </div>
+          <CategoryNav 
+            categories={categories} 
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+          />
+          <ExerciseList 
+            exercises={exercises}
+            categoryFilter={selectedCategory}
+            onSelectExercise={(exercise) => {
+              setSelectedExercise(exercise);
+              setCurrentView('exercise');
+            }}
+            progress={progress}
+          />
+          <div className="mt-6 flex gap-2">
+            <button 
+              onClick={() => setCurrentView('progress')}
+              className="flex-1 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700"
+            >
+              📊 查看進度
+            </button>
+          </div>
+        </div>
+      )}
+
+      {currentView === 'exercise' && selectedExercise && (
+        <ExerciseDetail 
+          exercise={selectedExercise}
+          onBack={handleBack}
+          onComplete={completeExercise}
+        />
+      )}
     </div>
   );
 }
