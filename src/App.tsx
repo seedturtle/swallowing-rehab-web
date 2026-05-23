@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { usePreloadModel } from './hooks/usePreloadModel';
 import Header from './components/Header';
 import CategoryNav from './components/CategoryNav';
 import ExerciseList from './components/ExerciseList';
@@ -10,7 +11,8 @@ import { exercises, categories } from './data/exercises';
 type View = 'home' | 'exercise' | 'progress';
 
 function App() {
-  const [currentView, setCurrentView] = useState<View>('home');
+  const [currentView, setCurrentView] = useState<View>(const { model: preloadedModel } = usePreloadModel();
+  'home');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
   const [progress, setProgress] = useState<PatientProgress[]>([]);

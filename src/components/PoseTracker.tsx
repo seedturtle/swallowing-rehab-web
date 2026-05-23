@@ -6,7 +6,7 @@ interface FaceLandmark {
   z?: number;
 }
 
-export default function PoseTracker() {
+export default function PoseTracker({ preloadedModel }: PoseTrackerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
