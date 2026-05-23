@@ -11,14 +11,14 @@ type View = 'home' | 'exercise' | 'progress';
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('home');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
   const [progress, setProgress] = useState<PatientProgress[]>([]);
 
   useEffect(() => {
     const saved = localStorage.getItem('swallow-rehab-progress');
     if (saved) {
-      setProgress(JSON.parse(saved));
+      try { setProgress(JSON.parse(saved)); } catch {}
     }
   }, []);
 
@@ -27,29 +27,16 @@ function App() {
     localStorage.setItem('swallow-rehab-progress', JSON.stringify(newProgress));
   };
 
-  const completeExercise = (exerciseId: string, repetitions?: number, duration?: number) => {
+  const completeExercise = (exerciseId: string, repetitions?: number) => {
     const now = new Date().toISOString().split('T')[0];
-    const existing = progress.find(p => p.date === now && p.exerciseId === exerciseId);
-    
-    if (existing) {
-      saveProgress(progress.map(p => 
-        p.date === now && p.exerciseId === exerciseId
-          ? { ...p, completedSessions: p.completedSessions + 1, totalDuration: p.totalDuration + duration }
-          : p
-      ));
-    } else {
-      saveProgress([...progress, {
-        date: now,
-        exerciseId,
-        completedSessions: 1,
-        totalDuration: duration
-      }]);
-    }
-  };
 
-  const getTodayProgress = () => {
-    const today = new Date().toISOString().split('T')[0];
-    return progress.filter(p => p.date === today);
+    saveProgress([...progress, {
+      date: now,
+      exerciseId,
+      completed: true,
+      repetitions: repetitions ?? 0,
+      duration: selectedExercise?.duration ?? 0
+    }]);
   };
 
   const handleBack = () => {
@@ -57,10 +44,15 @@ function App() {
     setCurrentView('home');
   };
 
+  const handleSelectExercise = (exercise: Exercise) => {
+    setSelectedExercise(exercise);
+    setCurrentView('exercise');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-      <Header />
-      
+      <Header onNavigate={setCurrentView} currentView={currentView} />
+
       {currentView === 'progress' && (
         <div className="p-4">
           <button onClick={() => setCurrentView('home')} className="mb-4 px-4 py-2 bg-blue-600 text-white rounded-lg">
@@ -75,22 +67,18 @@ function App() {
           <div className="text-center mb-6">
             <p className="text-gray-600 text-sm">選擇復健項目開始練習</p>
           </div>
-          <CategoryNav 
-            categories={categories} 
-            selectedCategory={selectedCategory}
-            onSelectCategory={setSelectedCategory}
+          <CategoryNav
+            categories={categories}
+            selected={selectedCategory}
+            onSelect={setSelectedCategory}
           />
-          <ExerciseList 
-            exercises={exercises}
-            categoryFilter={selectedCategory}
-            onSelectExercise={(exercise) => {
-              setSelectedExercise(exercise);
-              setCurrentView('exercise');
-            }}
+          <ExerciseList
+            exercises={selectedCategory === 'all' ? exercises : exercises.filter(e => e.category === selectedCategory)}
+            onExerciseClick={handleSelectExercise}
             progress={progress}
           />
           <div className="mt-6 flex gap-2">
-            <button 
+            <button
               onClick={() => setCurrentView('progress')}
               className="flex-1 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700"
             >
@@ -101,7 +89,7 @@ function App() {
       )}
 
       {currentView === 'exercise' && selectedExercise && (
-        <ExerciseDetail 
+        <ExerciseDetail
           exercise={selectedExercise}
           onBack={handleBack}
           onComplete={completeExercise}
