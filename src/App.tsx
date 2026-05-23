@@ -86,6 +86,11 @@ function App() {
               📊 查看進度
             </button>
           </div>
+          
+          {/* Footer — 僅首頁顯示 */}
+          <div className="text-center text-xs text-gray-400 mt-8 pb-4">
+            耳鼻喉科 洪士涵醫師 | 2026年5月23日
+          </div>
         </div>
       )}
 
@@ -96,11 +101,6 @@ function App() {
           onComplete={completeExercise}
         />
       )}
-      
-      {/* Footer */}
-      <div className="fixed bottom-2 left-0 right-0 text-center text-xs text-gray-400 pointer-events-none">
-        耳鼻喉科 洪士涵醫師 | 2026年5月23日
-      </div>
     </div>
   );
 }
