@@ -1,12 +1,5 @@
 {
   "$schema": "https://zeabur.com/schema.json",
-  "runtime": "static",
   "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
-  ]
+  "outputDirectory": "dist"
 }
