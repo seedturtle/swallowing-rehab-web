@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Exercise } from '../data/types';
 import { categories } from '../data/exercises';
+import PoseTracker from './PoseTracker';
 
 interface ExerciseDetailProps {
   exercise: Exercise;
@@ -9,22 +10,19 @@ interface ExerciseDetailProps {
 }
 
 export default function ExerciseDetail({ exercise, onBack, onComplete }: ExerciseDetailProps) {
-  const [timerSeconds, setTimerSeconds] = useState(exercise.duration);
-  const [isRunning, setIsRunning] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(exercise.duration);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [repetitions, setRepetitions] = useState(10);
-  
-  const category = categories.find(c => c.id === exercise.category);
+  const [showCamera, setShowCamera] = useState(false);
 
-  // 倒數計時器
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
-    
-    if (isRunning && timerSeconds > 0) {
+    let interval: NodeJS.Timeout;
+    if (isTimerRunning && timeLeft > 0) {
       interval = setInterval(() => {
-        setTimerSeconds(prev => {
+        setTimeLeft((prev) => {
           if (prev <= 1) {
-            setIsRunning(false);
+            setIsTimerRunning(false);
             setIsCompleted(true);
             return 0;
           }
@@ -32,62 +30,44 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
         });
       }, 1000);
     }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isRunning, timerSeconds]);
+    return () => clearInterval(interval);
+  }, [isTimerRunning, timeLeft]);
 
   const handleStartTimer = () => {
-    setTimerSeconds(exercise.duration);
-    setIsRunning(true);
+    setTimeLeft(exercise.duration);
     setIsCompleted(false);
+    setIsTimerRunning(true);
+  };
+
+  const handleCancelTimer = () => {
+    setIsTimerRunning(false);
+    setTimeLeft(exercise.duration);
   };
 
   const handleComplete = () => {
     onComplete(exercise.id, repetitions);
-    setIsRunning(false);
     setIsCompleted(false);
-    alert('已完成今天的練習！');
+    setTimeLeft(exercise.duration);
   };
 
-  const handleReset = () => {
-    setIsRunning(false);
-    setIsCompleted(false);
-    setTimerSeconds(exercise.duration);
-  };
-
-  const progressPercent = ((exercise.duration - timerSeconds) / exercise.duration) * 100;
+  const progress = exercise.duration > 0 
+    ? ((exercise.duration - timeLeft) / exercise.duration) * 100 
+    : 0;
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <button
-        onClick={onBack}
-        className="mb-6 flex items-center gap-2 text-[#003366] hover:text-[#006699] transition-colors"
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
-        返回列表
-      </button>
+    <div className="min-h-screen bg-gray-100">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-[#003366] to-[#006699] text-white p-4">
+        <button onClick={onBack} className="text-white mb-2">← 返回列表</button>
+        <h1 className="text-xl font-bold">{exercise.name}</h1>
+      </div>
 
-      <div className="card">
-        <div className="flex items-center gap-3 mb-4">
-          <span className="text-4xl">{category?.icon}</span>
-          <div>
-            <span 
-              className="px-3 py-1 rounded-full text-sm font-medium text-white"
-              style={{ backgroundColor: category?.color }}
-            >
-              {category?.name}
-            </span>
-          </div>
-        </div>
-
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">{exercise.name}</h2>
-        <p className="text-gray-600 mb-6">{exercise.description}</p>
-
-        <div className="bg-gray-50 rounded-lg p-4 mb-6">
+      <div className="p-4 space-y-4">
+        {/* Exercise Info */}
+        <div className="bg-white rounded-lg shadow-md p-4">
+          <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm mb-2">
+            {categories.find(c => c.id === exercise.category)?.name}
+          </span>
           <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
             <span className="text-xl">📋</span> 動作指示
           </h3>
@@ -103,77 +83,118 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
           </ol>
         </div>
 
-        {exercise.tips && exercise.tips.length > 0 && (
-          <div className="bg-blue-50 rounded-lg p-4 mb-6">
-            <h3 className="font-bold text-blue-800 mb-2 flex items-center gap-2">
-              <span>💡</span> 小提示
+        {/* 鏡頭追蹤功能 */}
+        <div className="bg-white rounded-lg shadow-md p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold text-gray-800 flex items-center gap-2">
+              🎥 鏡頭追蹤模式
             </h3>
+            <button 
+              onClick={() => setShowCamera(!showCamera)}
+              className={`px-3 py-1 rounded-full text-sm ${showCamera ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}
+            >
+              {showCamera ? '關閉' : '開啟'}
+            </button>
+          </div>
+          
+          {showCamera && <PoseTracker />}
+        </div>
+
+        {/* Tips */}
+        {exercise.tips && (
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+            <h3 className="font-bold text-yellow-800 mb-2">💡 小技巧</h3>
             <ul className="space-y-1">
               {exercise.tips.map((tip, index) => (
-                <li key={index} className="text-blue-700 text-sm">• {tip}</li>
+                <li key={index} className="text-yellow-700 text-sm flex gap-2">
+                  <span>•</span>
+                  <span>{tip}</span>
+                </li>
               ))}
             </ul>
           </div>
         )}
 
-        <div className="bg-gradient-to-r from-[#003366] to-[#006699] rounded-xl p-6 mb-6 text-center">
-          <div className="text-6xl font-bold text-white mb-2">
-            {timerSeconds}
-          </div>
-          <div className="text-white/80 text-sm">
-            {isRunning ? '倒數中...' : isCompleted ? '練習完成！' : '設定時間（秒）'}
-          </div>
-          <div className="mt-4 bg-white/20 rounded-full h-3 overflow-hidden">
-            <div 
-              className="bg-white h-full rounded-full transition-all duration-1000"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-        </div>
-
-        <div className="bg-gray-100 rounded-lg p-4 mb-6">
-          <h3 className="font-bold text-gray-800 mb-3">設定目標</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">練習時間（秒）</label>
-              <input
-                type="number"
-                value={timerSeconds}
-                onChange={(e) => !isRunning && setTimerSeconds(Number(e.target.value))}
-                disabled={isRunning}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003366] focus:border-transparent disabled:bg-gray-200"
-              />
+        {/* Timer Section */}
+        {exercise.duration > 0 && (
+          <div className="bg-white rounded-lg shadow-md p-4">
+            <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+              ⏱️ 計時練習
+            </h3>
+            
+            {/* Timer Display */}
+            <div className="text-center mb-4">
+              <div className={`text-6xl font-bold ${isTimerRunning ? 'text-[#003366]' : 'text-gray-400'}`}>
+                {timeLeft}s
+              </div>
+              {/* Progress Bar */}
+              <div className="w-full bg-gray-200 rounded-full h-3 mt-3">
+                <div 
+                  className="bg-gradient-to-r from-[#003366] to-[#006699] h-3 rounded-full transition-all duration-1000"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              {isTimerRunning && (
+                <p className="text-sm text-[#003366] mt-2 animate-pulse">倒數中...</p>
+              )}
             </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">重複次數</label>
-              <input
-                type="number"
-                value={repetitions}
-                onChange={(e) => setRepetitions(Number(e.target.value))}
-                disabled={isRunning}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003366] focus:border-transparent disabled:bg-gray-200"
-              />
+
+            {/* Control Buttons */}
+            <div className="flex gap-3">
+              {!isTimerRunning && !isCompleted && (
+                <button onClick={handleStartTimer} className="btn-primary flex-1">
+                  ▶️ 開始練習計時
+                </button>
+              )}
+              {isTimerRunning && (
+                <button onClick={handleCancelTimer} className="btn-primary flex-1 bg-gray-500">
+                  ❌ 取消計時
+                </button>
+              )}
+              {isCompleted && (
+                <button onClick={handleComplete} className="btn-primary flex-1 bg-green-600">
+                  ✓ 完成練習！
+                </button>
+              )}
             </div>
           </div>
-        </div>
+        )}
 
-        <div className="flex gap-4">
-          {!isRunning && !isCompleted && (
-            <button onClick={handleStartTimer} className="btn-primary flex-1 text-lg py-4">
-              開始練習計時
-            </button>
-          )}
-          {isRunning && (
-            <button onClick={handleReset} className="btn-primary flex-1 bg-red-600 hover:bg-red-700 text-lg py-4">
-              取消計時
-            </button>
-          )}
-          {isCompleted && (
-            <button onClick={handleComplete} className="btn-primary flex-1 bg-green-600 hover:bg-green-700 text-lg py-4">
-              完成練習 ✓
-            </button>
-          )}
-        </div>
+        {/* Repetition Section */}
+        {exercise.repetitions > 0 && (
+          <div className="bg-white rounded-lg shadow-md p-4">
+            <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+              🔄 目標次數
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">目標次數</label>
+                <input 
+                  type="number" 
+                  value={repetitions} 
+                  onChange={(e) => setRepetitions(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-full p-3 border-2 border-gray-300 rounded-lg text-center text-xl"
+                  min="1"
+                />
+              </div>
+              <div className="flex items-center justify-center text-4xl">
+                / {exercise.repetitions}
+              </div>
+            </div>
+            {!isTimerRunning && !isCompleted && (
+              <button onClick={handleComplete} className="btn-primary w-full mt-4">
+                ✓ 完成 {repetitions} 次
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Complete Button */}
+        {exercise.duration === 0 && exercise.repetitions === 0 && (
+          <button onClick={() => onComplete(exercise.id)} className="btn-primary w-full">
+            ✓ 完成練習
+          </button>
+        )}
       </div>
     </div>
   );
