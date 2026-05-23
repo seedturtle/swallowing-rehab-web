@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --hospital-blue: #003366;
+  --hospital-light: #006699;
+}
+
+body {
+  font-family: 'Noto Sans TC', sans-serif;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-hospital-blue text-white px-6 py-3 rounded-lg font-medium 
+           hover:bg-hospital-light transition-colors duration-200;
+  }
+  
+  .card {
+    @apply bg-white rounded-xl shadow-lg p-6;
+  }
+  
+  .exercise-card {
+    @apply bg-white rounded-xl shadow-md p-4 hover:shadow-xl 
+           transition-shadow duration-300 cursor-pointer;
+  }
+}
