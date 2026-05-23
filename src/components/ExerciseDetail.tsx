@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Exercise } from '../data/types';
+import PoseTracker from './PoseTracker';
 import { categories } from '../data/exercises';
 
 
@@ -99,6 +100,7 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
             >
               {showCamera ? '關閉' : '開啟'}
             </button>
+          {showCamera && <PoseTracker />}
           </div>
           
         </div>
