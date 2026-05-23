@@ -23,6 +23,7 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
         setTimeLeft(prev => prev - 1);
       }, 1000);
     } else if (timeLeft === 0 && isTimerRunning) {
+      // 倒數結束
       setIsTimerRunning(false);
       setIsCompleted(true);
     }
@@ -43,7 +44,13 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
     onComplete(exercise.id, repetitions);
     setIsTimerRunning(false);
     setIsCompleted(false);
-    alert('已完成今天的練習！');
+    setTimeLeft(exercise.duration);
+  };
+
+  const handleCancel = () => {
+    setIsTimerRunning(false);
+    setIsCompleted(false);
+    setTimeLeft(exercise.duration);
   };
 
   const handleReset = () => {
@@ -51,6 +58,9 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
     setIsCompleted(false);
     setTimeLeft(exercise.duration);
   };
+
+  // 進度百分比
+  const progressPercent = ((exercise.duration - timeLeft) / exercise.duration) * 100;
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -115,14 +125,14 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
             {timeLeft}
           </div>
           <div className="text-white/80 text-sm">
-            {isTimerRunning ? '倒數中...' : isCompleted ? '練習完成！' : '設定時間（秒）'}
+            {isTimerRunning ? '倒數中...' : isCompleted ? '練習完成！' : `設定時間 ${exercise.duration} 秒`}
           </div>
           
           {/* 進度條 */}
           <div className="mt-4 bg-white/20 rounded-full h-3 overflow-hidden">
             <div 
-              className="bg-white h-full rounded-full transition-all duration-1000"
-              style={{ width: `${((exercise.duration - timeLeft) / exercise.duration) * 100}%` }}
+              className="bg-white h-full rounded-full transition-all duration-1000 ease-linear"
+              style={{ width: `${progressPercent}%` }}
             />
           </div>
         </div>
@@ -134,10 +144,9 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
               <label className="block text-sm text-gray-600 mb-1">練習時間（秒）</label>
               <input
                 type="number"
-                value={timeLeft}
-                onChange={(e) => setTimeLeft(Number(e.target.value))}
-                disabled={isTimerRunning}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003366] focus:border-transparent disabled:bg-gray-200"
+                value={exercise.duration}
+                disabled
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-200"
               />
             </div>
             <div>
@@ -153,24 +162,20 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
           </div>
         </div>
 
+        {/* 按鈕區域 */}
         <div className="flex gap-4">
           {!isTimerRunning && !isCompleted && (
-            <button onClick={handleStartTimer} className="btn-primary flex-1">
+            <button onClick={handleStartTimer} className="btn-primary flex-1 text-lg py-3">
               開始練習計時
             </button>
           )}
           {isTimerRunning && (
-            <button onClick={handleReset} className="btn-primary flex-1 bg-red-600 hover:bg-red-700">
+            <button onClick={handleCancel} className="btn-primary flex-1 bg-red-600 hover:bg-red-700 text-lg py-3">
               取消計時
             </button>
           )}
           {isCompleted && (
-            <button onClick={handleComplete} className="btn-primary flex-1 bg-green-600 hover:bg-green-700">
-              完成練習 ✓
-            </button>
-          )}
-          {!isTimerRunning && !isCompleted && isCompleted === false && timeLeft < exercise.duration && (
-            <button onClick={handleComplete} className="btn-primary flex-1 bg-green-600 hover:bg-green-700">
+            <button onClick={handleComplete} className="btn-primary flex-1 bg-green-600 hover:bg-green-700 text-lg py-3">
               完成練習 ✓
             </button>
           )}
