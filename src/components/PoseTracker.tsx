@@ -7,7 +7,67 @@ interface PoseTrackerProps {
   onLandmarksDetected?: (landmarks: any) => void;
 }
 
+type Point = { x: number; y: number };
+type FaceMetrics = {
+  eyeDistance: number;
+  mouthOpenRatio: number;
+  mouthWidthRatio: number;
+  mouthAspectRatio: number;
+  pointCount: number;
+};
+type CalibrationKey = 'closed' | 'open' | 'smile' | 'pucker';
+type CalibrationValues = Record<CalibrationKey, FaceMetrics | null>;
+
+type CalibrationUi = {
+  active: boolean;
+  stepIndex: number;
+  remainingMs: number;
+  message: string;
+};
+
+type TrainingState = {
+  openPercent: number;
+  holdMs: number;
+  reps: number;
+  readyForNextRep: boolean;
+};
+
 const MODEL_URL = '/models';
+const HOLD_MS = 3000;
+const TARGET_OPEN_PERCENT = 80;
+const TARGET_REPS = 10;
+
+const CALIBRATION_STEPS: Array<{
+  key: CalibrationKey;
+  title: string;
+  instruction: string;
+  tip: string;
+}> = [
+  {
+    key: 'closed',
+    title: '自然閉口',
+    instruction: '嘴巴輕輕閉起來，正面看鏡頭。',
+    tip: '不要用力咬牙，維持放鬆。',
+  },
+  {
+    key: 'open',
+    title: '最大張口',
+    instruction: '嘴巴慢慢張到可以接受的最大程度。',
+    tip: '不要勉強疼痛，維持穩定即可。',
+  },
+  {
+    key: 'smile',
+    title: '最大微笑',
+    instruction: '嘴角盡量往左右打開。',
+    tip: '保持頭部不要晃動。',
+  },
+  {
+    key: 'pucker',
+    title: '噘嘴／圓唇',
+    instruction: '像發「ㄨ」的嘴型，嘴唇向前收圓。',
+    tip: '維持 3 秒，系統會自動記錄。',
+  },
+];
 
 const COLORS = {
   box: '#22C55E',
@@ -35,18 +95,67 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
-function asPoints(landmarks: any): Array<{ x: number; y: number }> {
+function distance(a: Point, b: Point) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function center(points: Point[]) {
+  const valid = points.filter(pt => Number.isFinite(pt.x) && Number.isFinite(pt.y));
+  if (!valid.length) return { x: 0, y: 0 };
+  return {
+    x: valid.reduce((sum, pt) => sum + pt.x, 0) / valid.length,
+    y: valid.reduce((sum, pt) => sum + pt.y, 0) / valid.length,
+  };
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function asPoints(landmarks: any): Point[] {
   if (Array.isArray(landmarks?.positions)) return landmarks.positions;
   if (Array.isArray(landmarks?._positions)) return landmarks._positions;
   if (typeof landmarks?.arraySync === 'function') return landmarks.arraySync();
   return [];
 }
 
-function slice(points: Array<{ x: number; y: number }>, start: number, end: number) {
+function pointSlice(points: Point[], start: number, end: number) {
   return points.slice(start, end).filter(pt => Number.isFinite(pt.x) && Number.isFinite(pt.y));
 }
 
-function drawPath(ctx: CanvasRenderingContext2D, pts: Array<{ x: number; y: number }>, color: string, close = false) {
+function meanMetrics(samples: FaceMetrics[]): FaceMetrics | null {
+  if (!samples.length) return null;
+  return {
+    eyeDistance: samples.reduce((sum, item) => sum + item.eyeDistance, 0) / samples.length,
+    mouthOpenRatio: samples.reduce((sum, item) => sum + item.mouthOpenRatio, 0) / samples.length,
+    mouthWidthRatio: samples.reduce((sum, item) => sum + item.mouthWidthRatio, 0) / samples.length,
+    mouthAspectRatio: samples.reduce((sum, item) => sum + item.mouthAspectRatio, 0) / samples.length,
+    pointCount: Math.round(samples.reduce((sum, item) => sum + item.pointCount, 0) / samples.length),
+  };
+}
+
+function computeMetrics(points: Point[]): FaceMetrics | null {
+  if (points.length < 68) return null;
+  const rightEyeCenter = center(pointSlice(points, 36, 42));
+  const leftEyeCenter = center(pointSlice(points, 42, 48));
+  const eyeDistance = distance(rightEyeCenter, leftEyeCenter);
+  if (!Number.isFinite(eyeDistance) || eyeDistance < 5) return null;
+
+  const mouthOpen = distance(points[62], points[66]);
+  const mouthWidth = distance(points[48], points[54]);
+  const mouthOpenRatio = mouthOpen / eyeDistance;
+  const mouthWidthRatio = mouthWidth / eyeDistance;
+
+  return {
+    eyeDistance,
+    mouthOpenRatio,
+    mouthWidthRatio,
+    mouthAspectRatio: mouthOpen / Math.max(mouthWidth, 1),
+    pointCount: points.length,
+  };
+}
+
+function drawPath(ctx: CanvasRenderingContext2D, pts: Point[], color: string, close = false) {
   if (!pts.length) return;
   ctx.beginPath();
   ctx.strokeStyle = color;
@@ -62,7 +171,7 @@ function drawPath(ctx: CanvasRenderingContext2D, pts: Array<{ x: number; y: numb
   ctx.shadowBlur = 0;
 }
 
-function drawDots(ctx: CanvasRenderingContext2D, pts: Array<{ x: number; y: number }>) {
+function drawDots(ctx: CanvasRenderingContext2D, pts: Point[]) {
   for (const pt of pts) {
     ctx.beginPath();
     ctx.fillStyle = COLORS.dot;
@@ -134,15 +243,15 @@ function drawLandmarks(canvas: HTMLCanvasElement, video: HTMLVideoElement, resul
     const points = asPoints(result.landmarks);
 
     if (points.length >= 68) {
-      const jaw = slice(points, 0, 17);
-      const rightBrow = slice(points, 17, 22);
-      const leftBrow = slice(points, 22, 27);
-      const noseBridge = slice(points, 27, 31);
-      const noseBase = slice(points, 31, 36);
-      const rightEye = slice(points, 36, 42);
-      const leftEye = slice(points, 42, 48);
-      const outerMouth = slice(points, 48, 60);
-      const innerMouth = slice(points, 60, 68);
+      const jaw = pointSlice(points, 0, 17);
+      const rightBrow = pointSlice(points, 17, 22);
+      const leftBrow = pointSlice(points, 22, 27);
+      const noseBridge = pointSlice(points, 27, 31);
+      const noseBase = pointSlice(points, 31, 36);
+      const rightEye = pointSlice(points, 36, 42);
+      const leftEye = pointSlice(points, 42, 48);
+      const outerMouth = pointSlice(points, 48, 60);
+      const innerMouth = pointSlice(points, 60, 68);
 
       drawPath(ctx, jaw, COLORS.face);
       drawPath(ctx, rightBrow, COLORS.brow);
@@ -153,29 +262,17 @@ function drawLandmarks(canvas: HTMLCanvasElement, video: HTMLVideoElement, resul
       drawPath(ctx, leftEye, COLORS.eye, true);
       drawPath(ctx, outerMouth, COLORS.mouth, true);
       drawPath(ctx, innerMouth, COLORS.mouth, true);
-      drawDots(ctx, [...jaw, ...rightBrow, ...leftBrow, ...noseBridge, ...noseBase, ...rightEye, ...leftEye, ...outerMouth, ...innerMouth]);
-      continue;
-    }
-
-    const landmarks = result.landmarks;
-    if (landmarks?.getJawOutline) {
-      const jaw = landmarks.getJawOutline();
-      const leftBrow = landmarks.getLeftEyeBrow();
-      const rightBrow = landmarks.getRightEyeBrow();
-      const leftEye = landmarks.getLeftEye();
-      const rightEye = landmarks.getRightEye();
-      const nose = landmarks.getNose();
-      const mouth = landmarks.getMouth();
-      drawPath(ctx, jaw, COLORS.face);
-      drawPath(ctx, leftBrow, COLORS.brow);
-      drawPath(ctx, rightBrow, COLORS.brow);
-      drawPath(ctx, leftEye, COLORS.eye, true);
-      drawPath(ctx, rightEye, COLORS.eye, true);
-      drawPath(ctx, nose, COLORS.nose);
-      drawPath(ctx, mouth, COLORS.mouth, true);
-      drawDots(ctx, [...jaw, ...leftBrow, ...rightBrow, ...leftEye, ...rightEye, ...nose, ...mouth]);
+      drawDots(ctx, [...rightEye, ...leftEye, ...outerMouth, ...innerMouth]);
     }
   }
+}
+
+function defaultCalibration(): CalibrationValues {
+  return { closed: null, open: null, smile: null, pucker: null };
+}
+
+function calibrationComplete(values: CalibrationValues) {
+  return Boolean(values.closed && values.open && values.smile && values.pucker);
 }
 
 export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected }: PoseTrackerProps) {
@@ -183,12 +280,124 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
   const rafIdRef = useRef(0);
   const activeRef = useRef(false);
   const lastDetectedAtRef = useRef(Date.now());
+  const calibrationSamplesRef = useRef<Record<CalibrationKey, FaceMetrics[]>>({ closed: [], open: [], smile: [], pucker: [] });
+  const calibrationStartedAtRef = useRef(0);
+  const calibrationStepIndexRef = useRef(-1);
+  const trainingRef = useRef<TrainingState>({ openPercent: 0, holdMs: 0, reps: 0, readyForNextRep: true });
+  const lastFrameAtRef = useRef(Date.now());
+
   const [status, setStatus] = useState('尚未啟動');
   const [modelLoaded, setModelLoaded] = useState(false);
   const [faceCount, setFaceCount] = useState(0);
   const [detectCount, setDetectCount] = useState(0);
   const [loadProgress, setLoadProgress] = useState(0);
   const [loadStep, setLoadStep] = useState('尚未啟動');
+  const [latestMetrics, setLatestMetrics] = useState<FaceMetrics | null>(null);
+  const [calibration, setCalibration] = useState<CalibrationValues>(defaultCalibration);
+  const [calibrationUi, setCalibrationUi] = useState<CalibrationUi>({
+    active: false,
+    stepIndex: -1,
+    remainingMs: HOLD_MS,
+    message: '尚未校正',
+  });
+  const [training, setTraining] = useState<TrainingState>({ openPercent: 0, holdMs: 0, reps: 0, readyForNextRep: true });
+
+  const startCalibration = () => {
+    calibrationSamplesRef.current = { closed: [], open: [], smile: [], pucker: [] };
+    calibrationStartedAtRef.current = Date.now();
+    calibrationStepIndexRef.current = 0;
+    setCalibration(defaultCalibration());
+    trainingRef.current = { openPercent: 0, holdMs: 0, reps: 0, readyForNextRep: true };
+    setTraining(trainingRef.current);
+    setCalibrationUi({
+      active: true,
+      stepIndex: 0,
+      remainingMs: HOLD_MS,
+      message: '校正開始，請照著畫面指示做。',
+    });
+  };
+
+  const resetTraining = () => {
+    trainingRef.current = { openPercent: 0, holdMs: 0, reps: 0, readyForNextRep: true };
+    setTraining(trainingRef.current);
+  };
+
+  function updateCalibration(metrics: FaceMetrics) {
+    const index = calibrationStepIndexRef.current;
+    if (index < 0 || index >= CALIBRATION_STEPS.length) return;
+
+    const step = CALIBRATION_STEPS[index];
+    calibrationSamplesRef.current[step.key].push(metrics);
+    const elapsed = Date.now() - calibrationStartedAtRef.current;
+    const remainingMs = Math.max(0, HOLD_MS - elapsed);
+
+    setCalibrationUi({
+      active: true,
+      stepIndex: index,
+      remainingMs,
+      message: `${step.title}：請維持 ${Math.ceil(remainingMs / 1000)} 秒`,
+    });
+
+    if (elapsed < HOLD_MS) return;
+
+    const nextIndex = index + 1;
+    if (nextIndex >= CALIBRATION_STEPS.length) {
+      const nextCalibration = {
+        closed: meanMetrics(calibrationSamplesRef.current.closed),
+        open: meanMetrics(calibrationSamplesRef.current.open),
+        smile: meanMetrics(calibrationSamplesRef.current.smile),
+        pucker: meanMetrics(calibrationSamplesRef.current.pucker),
+      };
+      setCalibration(nextCalibration);
+      calibrationStepIndexRef.current = -1;
+      setCalibrationUi({
+        active: false,
+        stepIndex: -1,
+        remainingMs: 0,
+        message: '校正完成，可以開始張口練習。',
+      });
+      resetTraining();
+      return;
+    }
+
+    calibrationStepIndexRef.current = nextIndex;
+    calibrationStartedAtRef.current = Date.now();
+    const nextStep = CALIBRATION_STEPS[nextIndex];
+    setCalibrationUi({
+      active: true,
+      stepIndex: nextIndex,
+      remainingMs: HOLD_MS,
+      message: `下一步：${nextStep.title}`,
+    });
+  }
+
+  function updateTraining(metrics: FaceMetrics, values: CalibrationValues) {
+    if (!values.closed || !values.open) return;
+    const range = values.open.mouthOpenRatio - values.closed.mouthOpenRatio;
+    if (!Number.isFinite(range) || range < 0.02) return;
+
+    const now = Date.now();
+    const deltaMs = Math.min(250, Math.max(0, now - lastFrameAtRef.current));
+    const openPercent = clamp(((metrics.mouthOpenRatio - values.closed.mouthOpenRatio) / range) * 100, 0, 130);
+    const current = { ...trainingRef.current, openPercent };
+
+    if (openPercent >= TARGET_OPEN_PERCENT && current.readyForNextRep) {
+      current.holdMs = Math.min(HOLD_MS, current.holdMs + deltaMs);
+      if (current.holdMs >= HOLD_MS) {
+        current.reps = Math.min(TARGET_REPS, current.reps + 1);
+        current.readyForNextRep = false;
+        current.holdMs = 0;
+      }
+    } else if (openPercent < 50) {
+      current.readyForNextRep = true;
+      current.holdMs = 0;
+    } else if (openPercent < TARGET_OPEN_PERCENT) {
+      current.holdMs = 0;
+    }
+
+    trainingRef.current = current;
+    setTraining(current);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -262,8 +471,9 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
       setLoadProgress(100);
       setLoadStep('模型準備完成');
       setModelLoaded(true);
-      setStatus('模型已就緒，請面對鏡頭');
+      setStatus('模型已就緒，請先做臉部動作校正');
       lastDetectedAtRef.current = Date.now();
+      lastFrameAtRef.current = Date.now();
 
       async function tick() {
         const currentVideo = videoRef.current;
@@ -281,10 +491,22 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
             onLandmarksDetected?.(results);
 
             if (results.length > 0) {
+              const points = asPoints((results[0] as any).landmarks);
+              const metrics = computeMetrics(points);
               setDetectCount(count => count + 1);
               lastDetectedAtRef.current = Date.now();
-              const pointCount = asPoints((results[0] as any).landmarks).length;
-              setStatus(`已偵測到臉部：${results.length}｜五官點：${pointCount}`);
+
+              if (metrics) {
+                setLatestMetrics(metrics);
+                updateCalibration(metrics);
+                setCalibration(currentCalibration => {
+                  if (calibrationComplete(currentCalibration)) updateTraining(metrics, currentCalibration);
+                  return currentCalibration;
+                });
+                setStatus(`已偵測到臉部｜五官點：${metrics.pointCount}｜張口比：${metrics.mouthOpenRatio.toFixed(3)}`);
+              } else {
+                setStatus(`已偵測到臉部，但五官點不足：${points.length}`);
+              }
             } else if (Date.now() - lastDetectedAtRef.current > 3000) {
               setStatus('尚未偵測到臉，請正面看鏡頭並保持光線充足');
             }
@@ -293,6 +515,7 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
           }
         }
 
+        lastFrameAtRef.current = Date.now();
         rafIdRef.current = requestAnimationFrame(tick);
       }
 
@@ -308,6 +531,12 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
     };
   }, [isTracking, videoRef, onLandmarksDetected]);
 
+  const currentStep = calibrationUi.active ? CALIBRATION_STEPS[calibrationUi.stepIndex] : null;
+  const isCalibrated = calibrationComplete(calibration);
+  const holdPercent = clamp((training.holdMs / HOLD_MS) * 100, 0, 100);
+  const openPercent = Math.round(training.openPercent);
+  const displayOpenPercent = clamp(openPercent, 0, 100);
+
   return (
     <div className="absolute inset-0 w-full h-full">
       <canvas
@@ -315,6 +544,7 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
         className="absolute inset-0 w-full h-full object-contain pointer-events-none"
         style={{ transform: 'scaleX(-1)' }}
       />
+
       <div className="absolute top-2 left-2 right-2 flex flex-wrap items-center justify-between gap-2 text-xs">
         <span className={`px-2 py-1 rounded text-white ${modelLoaded ? 'bg-green-600' : 'bg-amber-600'}`}>
           {modelLoaded ? '模型已就緒' : `模型載入中 ${loadProgress}%`}
@@ -323,6 +553,7 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
           臉：{faceCount}｜偵測：{detectCount}
         </span>
       </div>
+
       {!modelLoaded && isTracking && (
         <div className="absolute left-2 right-2 bottom-12 rounded-lg bg-slate-900/90 px-3 py-2 text-white shadow-lg">
           <div className="mb-1 flex items-center justify-between text-xs">
@@ -330,15 +561,84 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
             <span>{loadProgress}%</span>
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-slate-700">
-            <div
-              className="h-full rounded-full bg-amber-400 transition-all duration-300"
-              style={{ width: `${loadProgress}%` }}
-            />
+            <div className="h-full rounded-full bg-amber-400 transition-all duration-300" style={{ width: `${loadProgress}%` }} />
           </div>
         </div>
       )}
+
+      {modelLoaded && !calibrationUi.active && !isCalibrated && (
+        <div className="absolute left-2 right-2 bottom-12 rounded-xl bg-slate-900/90 p-3 text-white shadow-lg">
+          <div className="text-sm font-bold">臉部動作校正</div>
+          <p className="mt-1 text-xs leading-relaxed text-slate-200">
+            校正會記錄你的自然閉口、最大張口、最大微笑和噘嘴。之後系統會用你的臉部比例計算，不會只看像素距離。
+          </p>
+          <button
+            type="button"
+            onClick={startCalibration}
+            disabled={!latestMetrics}
+            className="mt-2 w-full rounded-lg bg-purple-600 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {latestMetrics ? '開始校正' : '請先讓臉出現在畫面中'}
+          </button>
+        </div>
+      )}
+
+      {modelLoaded && calibrationUi.active && currentStep && (
+        <div className="absolute left-2 right-2 bottom-12 rounded-xl bg-purple-950/95 p-3 text-white shadow-lg">
+          <div className="flex items-center justify-between text-xs text-purple-100">
+            <span>校正 {calibrationUi.stepIndex + 1} / {CALIBRATION_STEPS.length}</span>
+            <span>{Math.ceil(calibrationUi.remainingMs / 1000)} 秒</span>
+          </div>
+          <div className="mt-1 text-lg font-bold">{currentStep.title}</div>
+          <div className="text-sm">{currentStep.instruction}</div>
+          <div className="mt-1 text-xs text-purple-100">{currentStep.tip}</div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-purple-800">
+            <div className="h-full rounded-full bg-purple-300 transition-all" style={{ width: `${100 - (calibrationUi.remainingMs / HOLD_MS) * 100}%` }} />
+          </div>
+        </div>
+      )}
+
+      {modelLoaded && isCalibrated && !calibrationUi.active && (
+        <div className="absolute left-2 right-2 bottom-12 rounded-xl bg-slate-900/90 p-3 text-white shadow-lg">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div>
+              <div className="text-sm font-bold">張口練習量化</div>
+              <div className="text-xs text-slate-300">張到目標以上並維持 3 秒，算 1 次有效練習。</div>
+            </div>
+            <button type="button" onClick={startCalibration} className="rounded bg-slate-700 px-2 py-1 text-xs">
+              重新校正
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center text-xs">
+            <div className="rounded-lg bg-slate-800 p-2">
+              <div className="text-slate-300">目前張口</div>
+              <div className={`text-2xl font-bold ${displayOpenPercent >= TARGET_OPEN_PERCENT ? 'text-green-300' : 'text-amber-300'}`}>{displayOpenPercent}%</div>
+            </div>
+            <div className="rounded-lg bg-slate-800 p-2">
+              <div className="text-slate-300">維持時間</div>
+              <div className="text-2xl font-bold text-sky-300">{(training.holdMs / 1000).toFixed(1)}秒</div>
+            </div>
+            <div className="rounded-lg bg-slate-800 p-2">
+              <div className="text-slate-300">有效次數</div>
+              <div className="text-2xl font-bold text-purple-300">{training.reps}/{TARGET_REPS}</div>
+            </div>
+          </div>
+          <div className="mt-2 text-xs text-slate-300">目標：至少 {TARGET_OPEN_PERCENT}%</div>
+          <div className="relative mt-1 h-3 overflow-hidden rounded-full bg-slate-700">
+            <div className="h-full rounded-full bg-amber-400 transition-all" style={{ width: `${displayOpenPercent}%` }} />
+            <div className="absolute top-0 h-full w-0.5 bg-green-300" style={{ left: `${TARGET_OPEN_PERCENT}%` }} />
+          </div>
+          <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-700">
+            <div className="h-full rounded-full bg-green-400 transition-all" style={{ width: `${holdPercent}%` }} />
+          </div>
+          <button type="button" onClick={resetTraining} className="mt-2 w-full rounded-lg bg-slate-700 py-1.5 text-xs">
+            重置練習次數
+          </button>
+        </div>
+      )}
+
       <div className="absolute bottom-2 left-2 right-2 rounded bg-slate-900/80 px-3 py-2 text-center text-xs text-white">
-        {status}
+        {calibrationUi.message !== '尚未校正' ? calibrationUi.message : status}
       </div>
     </div>
   );
