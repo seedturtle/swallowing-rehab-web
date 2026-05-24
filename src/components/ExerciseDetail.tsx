@@ -223,7 +223,7 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-contain"
+              className="absolute inset-0 w-full h-full object-contain opacity-0 pointer-events-none"
             />
             <PoseTracker videoRef={videoRef} isTracking={showCamera} />
           </div>
