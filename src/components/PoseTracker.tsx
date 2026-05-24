@@ -15,9 +15,12 @@ type FaceMetrics = {
   mouthOpenRatio: number;
   mouthWidthRatio: number;
   mouthAspectRatio: number;
+  browRaiseRatio: number;
+  innerBrowRatio: number;
+  cheekWidthRatio: number;
   pointCount: number;
 };
-type CalibrationKey = 'closed' | 'open' | 'smile' | 'pucker' | 'neutralPose' | 'targetPose';
+type CalibrationKey = 'closed' | 'open' | 'smile' | 'pucker' | 'browRaise' | 'frown' | 'cheekPuff';
 type CalibrationValues = Record<CalibrationKey, FaceMetrics | null>;
 
 type CalibrationUi = {
@@ -99,6 +102,9 @@ function meanMetrics(samples: FaceMetrics[]): FaceMetrics | null {
     mouthOpenRatio: samples.reduce((sum, item) => sum + item.mouthOpenRatio, 0) / samples.length,
     mouthWidthRatio: samples.reduce((sum, item) => sum + item.mouthWidthRatio, 0) / samples.length,
     mouthAspectRatio: samples.reduce((sum, item) => sum + item.mouthAspectRatio, 0) / samples.length,
+    browRaiseRatio: samples.reduce((sum, item) => sum + item.browRaiseRatio, 0) / samples.length,
+    innerBrowRatio: samples.reduce((sum, item) => sum + item.innerBrowRatio, 0) / samples.length,
+    cheekWidthRatio: samples.reduce((sum, item) => sum + item.cheekWidthRatio, 0) / samples.length,
     pointCount: Math.round(samples.reduce((sum, item) => sum + item.pointCount, 0) / samples.length),
   };
 }
@@ -114,12 +120,22 @@ function computeMetrics(points: Point[]): FaceMetrics | null {
   const mouthWidth = distance(points[48], points[54]);
   const mouthOpenRatio = mouthOpen / eyeDistance;
   const mouthWidthRatio = mouthWidth / eyeDistance;
+  const rightBrowCenter = center(pointSlice(points, 17, 22));
+  const leftBrowCenter = center(pointSlice(points, 22, 27));
+  const rightEyeGap = rightEyeCenter.y - rightBrowCenter.y;
+  const leftEyeGap = leftEyeCenter.y - leftBrowCenter.y;
+  const browRaiseRatio = ((rightEyeGap + leftEyeGap) / 2) / eyeDistance;
+  const innerBrowRatio = distance(points[21], points[22]) / eyeDistance;
+  const cheekWidthRatio = distance(points[3], points[13]) / eyeDistance;
 
   return {
     eyeDistance,
     mouthOpenRatio,
     mouthWidthRatio,
     mouthAspectRatio: mouthOpen / Math.max(mouthWidth, 1),
+    browRaiseRatio,
+    innerBrowRatio,
+    cheekWidthRatio,
     pointCount: points.length,
   };
 }
@@ -237,7 +253,7 @@ function drawLandmarks(canvas: HTMLCanvasElement, video: HTMLVideoElement, resul
 }
 
 function defaultCalibration(): CalibrationValues {
-  return { closed: null, open: null, smile: null, pucker: null, neutralPose: null, targetPose: null };
+  return { closed: null, open: null, smile: null, pucker: null, browRaise: null, frown: null, cheekPuff: null };
 }
 
 function calibrationComplete(values: CalibrationValues, profile: TrackingProfile) {
@@ -250,7 +266,7 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
   const rafIdRef = useRef(0);
   const activeRef = useRef(false);
   const lastDetectedAtRef = useRef(Date.now());
-  const calibrationSamplesRef = useRef<Record<CalibrationKey, FaceMetrics[]>>({ closed: [], open: [], smile: [], pucker: [], neutralPose: [], targetPose: [] });
+  const calibrationSamplesRef = useRef<Record<CalibrationKey, FaceMetrics[]>>({ closed: [], open: [], smile: [], pucker: [], browRaise: [], frown: [], cheekPuff: [] });
   const calibrationStartedAtRef = useRef(0);
   const calibrationStepIndexRef = useRef(-1);
   const trainingRef = useRef<TrainingState>({ openPercent: 0, holdMs: 0, reps: 0, readyForNextRep: true });
@@ -274,7 +290,7 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
 
   const startCalibration = () => {
     if (!profile.quantifiable || profile.calibrationSteps.length === 0) return;
-    calibrationSamplesRef.current = { closed: [], open: [], smile: [], pucker: [], neutralPose: [], targetPose: [] };
+    calibrationSamplesRef.current = { closed: [], open: [], smile: [], pucker: [], browRaise: [], frown: [], cheekPuff: [] };
     calibrationStartedAtRef.current = Date.now();
     calibrationStepIndexRef.current = 0;
     setCalibration(defaultCalibration());
@@ -318,8 +334,9 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
         open: meanMetrics(calibrationSamplesRef.current.open),
         smile: meanMetrics(calibrationSamplesRef.current.smile),
         pucker: meanMetrics(calibrationSamplesRef.current.pucker),
-        neutralPose: meanMetrics(calibrationSamplesRef.current.neutralPose),
-        targetPose: meanMetrics(calibrationSamplesRef.current.targetPose),
+        browRaise: meanMetrics(calibrationSamplesRef.current.browRaise),
+        frown: meanMetrics(calibrationSamplesRef.current.frown),
+        cheekPuff: meanMetrics(calibrationSamplesRef.current.cheekPuff),
       };
       setCalibration(nextCalibration);
       calibrationStepIndexRef.current = -1;
@@ -363,6 +380,29 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
       const range = values.smile.mouthWidthRatio - values.closed.mouthWidthRatio;
       if (!Number.isFinite(range) || range < 0.02) return null;
       return ((metrics.mouthWidthRatio - values.closed.mouthWidthRatio) / range) * 100;
+    }
+    if (profile.mode === 'facial-expression') {
+      const scores: number[] = [];
+      if (values.browRaise) {
+        const range = values.browRaise.browRaiseRatio - values.closed.browRaiseRatio;
+        if (Number.isFinite(range) && Math.abs(range) >= 0.01) {
+          scores.push(((metrics.browRaiseRatio - values.closed.browRaiseRatio) / range) * 100);
+        }
+      }
+      if (values.frown) {
+        const range = values.closed.innerBrowRatio - values.frown.innerBrowRatio;
+        if (Number.isFinite(range) && Math.abs(range) >= 0.005) {
+          scores.push(((values.closed.innerBrowRatio - metrics.innerBrowRatio) / range) * 100);
+        }
+      }
+      if (values.cheekPuff) {
+        const range = values.cheekPuff.cheekWidthRatio - values.closed.cheekWidthRatio;
+        if (Number.isFinite(range) && Math.abs(range) >= 0.005) {
+          scores.push(((metrics.cheekWidthRatio - values.closed.cheekWidthRatio) / range) * 100);
+        }
+      }
+      if (!scores.length) return null;
+      return Math.max(...scores);
     }
     return null;
   }

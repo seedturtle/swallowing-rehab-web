@@ -5,11 +5,12 @@ export type TrackingMode =
   | 'mouth-open'
   | 'lip-pucker'
   | 'smile'
+  | 'facial-expression'
   | 'pose-neck'
   | 'pose-arm'
   | 'pose-posture'
   | 'self-view';
-export type CalibrationKey = 'closed' | 'open' | 'smile' | 'pucker';
+export type CalibrationKey = 'closed' | 'open' | 'smile' | 'pucker' | 'browRaise' | 'frown' | 'cheekPuff';
 
 export type TrackingCalibrationStep = {
   key: CalibrationKey;
@@ -97,6 +98,38 @@ const smileProfile: TrackingProfile = {
   ],
 };
 
+const facialExpressionProfile: TrackingProfile = {
+  module: 'face',
+  mode: 'facial-expression',
+  quantifiable: true,
+  title: '臉部表情輔助量化',
+  targetLabel: '表情到位',
+  targetPercent: 75,
+  patientNotice: '本項目打開鏡頭後，可以利用臉部辨識輔助量化抬眉、皺眉與鼓臉頰等表情動作。這類表情的數值較容易受光線、角度與臉型影響，主要作為即時回饋，幫助你看見自己是否有做出動作。',
+  metricNote: '量化方式：系統會先記錄自然表情，再記錄最大抬眉、最大皺眉與最大鼓臉頰。練習時會取目前最接近的表情動作，換算成 0–100% 的輔助到位程度。',
+  calibrationSteps: [
+    closedStep,
+    {
+      key: 'browRaise',
+      title: '最大抬眉',
+      instruction: '盡量把眉毛往上抬，眼睛可以自然張開。',
+      tip: '保持頭不要往後仰，維持表情穩定。',
+    },
+    {
+      key: 'frown',
+      title: '最大皺眉',
+      instruction: '慢慢皺眉，讓左右眉頭往中間靠近。',
+      tip: '不要低頭，正面看鏡頭，維持表情穩定。',
+    },
+    {
+      key: 'cheekPuff',
+      title: '最大鼓臉頰',
+      instruction: '嘴巴閉起來，將兩側臉頰鼓起來。',
+      tip: '盡量讓兩邊臉頰都鼓起，維持穩定。',
+    },
+  ],
+};
+
 function poseProfile(mode: 'pose-neck' | 'pose-arm' | 'pose-posture', title: string, notice: string, metricNote: string): TrackingProfile {
   return {
     module: 'pose',
@@ -145,6 +178,7 @@ const selfViewProfile: TrackingProfile = {
 };
 
 export function getExerciseTrackingProfile(exercise: Exercise): TrackingProfile {
+  if (exercise.id === 'facial-1') return facialExpressionProfile;
   if (['facial-2', 'lip-2', 'trismus-1', 'trismus-2'].includes(exercise.id)) return mouthOpenProfile;
   if (exercise.id === 'lip-1') return lipPuckerProfile;
   if (exercise.name.includes('微笑')) return smileProfile;
