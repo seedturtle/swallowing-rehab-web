@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from './components/Header';
 import CategoryNav from './components/CategoryNav';
 import ExerciseList from './components/ExerciseList';
@@ -14,11 +14,14 @@ function App() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
 
-  const [visitCount] = useState<number>(() => {
-    const prev = parseInt(localStorage.getItem('swallow-rehab-visit') || '0');
-    localStorage.setItem('swallow-rehab-visit', String(prev + 1));
-    return prev + 1;
-  });
+  const [visitCount, setVisitCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch('https://seedturtle.zo.space/api/counter', { method: 'POST' })
+      .then(r => r.json())
+      .then(d => setVisitCount(d.count))
+      .catch(() => setVisitCount(1));
+  }, []);
 
   const [progress, setProgress] = useState<PatientProgress[]>(() => {
     try {
@@ -103,7 +106,7 @@ function App() {
           {/* Footer — 僅首頁顯示 */}
           <div className="text-center text-xs text-gray-400 mt-8 pb-4">
             耳鼻喉科 洪士涵醫師 | 2026年5月23日<br />
-            造訪 {visitCount} 次
+            {visitCount !== null ? `造訪 ${visitCount} 次` : '載入中...'}
           </div>
         </div>
       )}
