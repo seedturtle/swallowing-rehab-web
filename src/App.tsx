@@ -13,15 +13,6 @@ function App() {
   const [currentView, setCurrentView] = useState<View>('home');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
-  const [visitCount, setVisitCount] = useState<number | null>(null);
-
-  // ✅ 只在第一次（全新瀏覽器）才遞增計數
-  useEffect(() => {
-    fetch('https://seedturtle.zo.space/api/counter', { method: 'POST' })
-      .then(r => r.json())
-      .then(d => setVisitCount(d.count))
-      .catch(() => setVisitCount(null));
-  }, []);
 
   // Counter12 計數器（替代原本的 API call）
   useEffect(() => {
