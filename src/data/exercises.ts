@@ -346,6 +346,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'shoulder-3',
+    videoUrl: '/videos/手臂前舉外展.mp4',
     name: '手臂前舉外展',
     category: 'shoulder',
     difficulty: 'intermediate',
@@ -385,10 +386,11 @@ export const exercises: Exercise[] = [
   {
     id: 'trismus-2',
     name: '壓舌板輔助張口',
+    description: '使用壓舌板被動伸展，逐步增加張口幅度',
+    videoUrl: '/videos/壓舌板輔助張口.mp4',
     category: 'trismus',
     difficulty: 'advanced',
     duration: 120,
-    description: '使用壓舌板被動伸展，逐步增加張口幅度',
     instructions: [
       '準備 5-10 根壓舌板',
       '先做主動張口 5 次暖身',
@@ -405,10 +407,11 @@ export const exercises: Exercise[] = [
   {
     id: 'lymphedema-1',
     name: '頸部自我淋巴引流',
+    description: '透過輕柔的頸部按摩動作促進淋巴循環，減少術後水腫',
+    videoUrl: '/videos/頸部自我淋巴引流.mp4',
     category: 'lymphedema',
     difficulty: 'basic',
     duration: 180,
-    description: '輕柔按摩促進淋巴回流，減輕頸部腫脹',
     instructions: [
       '坐直，塗抹適量乳液或按摩油',
       '用手指腹輕輕從耳後向下滑推至鎖骨',
