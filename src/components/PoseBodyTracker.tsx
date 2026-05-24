@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as posedetection from '@tensorflow-models/pose-detection';
+import * as tf from '@tensorflow/tfjs-core';
 import '@tensorflow/tfjs-backend-webgl';
 import '@tensorflow/tfjs-backend-cpu';
 import type { TrackingProfile } from '../utils/trackingProfile';
@@ -67,6 +68,28 @@ function drawSkeleton(ctx: CanvasRenderingContext2D, pose: posedetection.Pose) {
     ctx.fill();
   }
   ctx.restore();
+}
+
+
+async function ensureTfBackend(onProgress?: (message: string) => void) {
+  const current = tf.getBackend();
+  if (current && current !== 'webgpu') {
+    await tf.ready();
+    return current;
+  }
+
+  try {
+    onProgress?.('初始化 WebGL 後端');
+    await tf.setBackend('webgl');
+    await tf.ready();
+    return 'webgl';
+  } catch (webglError) {
+    console.warn('WebGL backend failed, falling back to CPU', webglError);
+    onProgress?.('WebGL 不可用，改用 CPU 後端');
+    await tf.setBackend('cpu');
+    await tf.ready();
+    return 'cpu';
+  }
 }
 
 function bodyScore(pose: posedetection.Pose, profile: TrackingProfile): { percent: number; note: string } | null {
@@ -164,8 +187,12 @@ export default function PoseBodyTracker({ videoRef, isTracking, profile }: PoseB
       }
 
       try {
-        setLoadProgress(45);
-        setLoadStep('載入 MoveNet 單人骨架模型');
+        setLoadProgress(35);
+        setLoadStep('初始化 TensorFlow 後端');
+        const backend = await ensureTfBackend(step => setLoadStep(step));
+        if (cancelled) return;
+        setLoadProgress(55);
+        setLoadStep(`載入 MoveNet 單人骨架模型（${backend}）`);
         detectorRef.current = await posedetection.createDetector(posedetection.SupportedModels.MoveNet, {
           modelType: posedetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
         });
