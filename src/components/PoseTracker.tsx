@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import * as faceapi from '@vladmandic/face-api';
 import type { TrackingProfile } from '../utils/trackingProfile';
+import type { TrackingSummary } from '../data/types';
 
 interface PoseTrackerProps {
   videoRef: React.RefObject<HTMLVideoElement>;
   isTracking: boolean;
   profile: TrackingProfile;
   onLandmarksDetected?: (landmarks: any) => void;
+  onTrackingSummary?: (summary: TrackingSummary) => void;
 }
 
 type Point = { x: number; y: number };
@@ -35,8 +37,16 @@ type TrainingState = {
   holdMs: number;
   reps: number;
   readyForNextRep: boolean;
+  maxPercent: number;
+  sumPercent: number;
+  samples: number;
+  totalHoldMs: number;
 };
 type PracticeState = 'idle' | 'countdown' | 'active';
+
+function initialTrainingState(): TrainingState {
+  return { openPercent: 0, holdMs: 0, reps: 0, readyForNextRep: true, maxPercent: 0, sumPercent: 0, samples: 0, totalHoldMs: 0 };
+}
 
 const MODEL_URL = '/models';
 const HOLD_MS = 6000;
@@ -325,7 +335,7 @@ function calibrationComplete(values: CalibrationValues, profile: TrackingProfile
   return profile.calibrationSteps.every(step => Boolean(values[step.key]));
 }
 
-export default function PoseTracker({ videoRef, isTracking, profile, onLandmarksDetected }: PoseTrackerProps) {
+export default function PoseTracker({ videoRef, isTracking, profile, onLandmarksDetected, onTrackingSummary }: PoseTrackerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafIdRef = useRef(0);
   const activeRef = useRef(false);
@@ -333,7 +343,7 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
   const calibrationSamplesRef = useRef<Record<CalibrationKey, FaceMetrics[]>>({ closed: [], open: [], smile: [], pucker: [], browRaise: [], frown: [], cheekPuff: [] });
   const calibrationStartedAtRef = useRef(0);
   const calibrationStepIndexRef = useRef(-1);
-  const trainingRef = useRef<TrainingState>({ openPercent: 0, holdMs: 0, reps: 0, readyForNextRep: true });
+  const trainingRef = useRef<TrainingState>(initialTrainingState());
   const lastFrameAtRef = useRef(Date.now());
   const practiceCountdownStartedAtRef = useRef(0);
 
@@ -351,7 +361,7 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
     remainingMs: HOLD_MS,
     message: '尚未校正',
   });
-  const [training, setTraining] = useState<TrainingState>({ openPercent: 0, holdMs: 0, reps: 0, readyForNextRep: true });
+  const [training, setTraining] = useState<TrainingState>(initialTrainingState());
   const [practiceState, setPracticeState] = useState<PracticeState>('idle');
   const [practiceCountdownMs, setPracticeCountdownMs] = useState(0);
 
@@ -361,7 +371,7 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
     calibrationStartedAtRef.current = Date.now();
     calibrationStepIndexRef.current = 0;
     setCalibration(defaultCalibration());
-    trainingRef.current = { openPercent: 0, holdMs: 0, reps: 0, readyForNextRep: true };
+    trainingRef.current = initialTrainingState();
     setTraining(trainingRef.current);
     setCalibrationUi({
       active: true,
@@ -372,14 +382,14 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
   };
 
   const resetTraining = () => {
-    trainingRef.current = { openPercent: 0, holdMs: 0, reps: 0, readyForNextRep: true };
+    trainingRef.current = initialTrainingState();
     setTraining(trainingRef.current);
     setPracticeState('idle');
     setPracticeCountdownMs(0);
   };
 
   const startPractice = () => {
-    trainingRef.current = { openPercent: 0, holdMs: 0, reps: 0, readyForNextRep: true };
+    trainingRef.current = initialTrainingState();
     setTraining(trainingRef.current);
     practiceCountdownStartedAtRef.current = Date.now();
     setPracticeCountdownMs(3000);
@@ -492,6 +502,13 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
     const deltaMs = Math.min(250, Math.max(0, now - lastFrameAtRef.current));
     const currentPercent = clamp(percent, 0, 130);
     const current = { ...trainingRef.current, openPercent: currentPercent };
+    if (practiceState === 'active') {
+      const capped = clamp(currentPercent, 0, 100);
+      current.maxPercent = Math.max(current.maxPercent, capped);
+      current.sumPercent += capped;
+      current.samples += 1;
+      if (currentPercent >= profile.targetPercent) current.totalHoldMs += deltaMs;
+    }
 
     if (currentPercent >= profile.targetPercent && current.readyForNextRep) {
       current.holdMs = Math.min(HOLD_MS, current.holdMs + deltaMs);
@@ -671,6 +688,21 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
     }, 100);
     return () => window.clearInterval(timer);
   }, [practiceState]);
+
+  useEffect(() => {
+    onTrackingSummary?.({
+      module: profile.module,
+      mode: profile.mode,
+      targetLabel: profile.targetLabel,
+      reps: training.reps,
+      maxPercent: Math.round(training.maxPercent),
+      avgPercent: training.samples > 0 ? Math.round(training.sumPercent / training.samples) : undefined,
+      targetHoldSeconds: Number((training.totalHoldMs / 1000).toFixed(1)),
+      totalHoldSeconds: Number((training.totalHoldMs / 1000).toFixed(1)),
+      completedTarget: training.reps >= TARGET_REPS,
+      samples: training.samples,
+    });
+  }, [training, profile, onTrackingSummary]);
 
   return (
     <>

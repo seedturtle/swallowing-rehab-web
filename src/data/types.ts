@@ -13,6 +13,7 @@ export interface Exercise {
   imageFrames?: string[];  // 多幀圖片陣列，用於動畫展示
 }
 
+
 export interface PatientProgress {
   exerciseId: string;
   date: string;
@@ -20,6 +21,7 @@ export interface PatientProgress {
   repetitions?: number;
   duration?: number; // actual duration in seconds
   notes?: string;
+  tracking?: TrackingSummary;
 }
 
 export interface PatientProfile {

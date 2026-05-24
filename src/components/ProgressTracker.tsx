@@ -16,6 +16,19 @@ function formatDateTime(iso: string) {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
+
+function formatTrackingSummary(item: PatientProgress) {
+  const t = item.tracking;
+  if (!t) return '';
+  const parts: string[] = [];
+  if (t.module) parts.push(`模組：${t.module}`);
+  if (typeof t.reps === 'number') parts.push(`有效 ${t.reps} 次`);
+  if (typeof t.maxPercent === 'number') parts.push(`最高 ${t.maxPercent}%`);
+  if (typeof t.avgPercent === 'number') parts.push(`平均 ${t.avgPercent}%`);
+  if (typeof t.totalHoldSeconds === 'number') parts.push(`達標維持 ${t.totalHoldSeconds} 秒`);
+  return parts.join(' | ');
+}
+
 export default function ProgressTracker({ progress, exercises, onReset }: ProgressTrackerProps) {
   // Get last 7 days
   const getLast7Days = () => {
@@ -91,7 +104,8 @@ export default function ProgressTracker({ progress, exercises, onReset }: Progre
         const ts = formatDateTime(item.date);
         const reps = item.repetitions ? ` | ${item.repetitions} 次` : '';
         const dur = item.duration ? ` | ${item.duration}秒` : '';
-        lines.push(`  ${ts}  ${exercise?.name || item.exerciseId}${reps}${dur}`);
+        const tracking = formatTrackingSummary(item);
+        lines.push(`  ${ts}  ${exercise?.name || item.exerciseId}${reps}${dur}${tracking ? ` | ${tracking}` : ''}`);
       }
       lines.push('');
     }
@@ -221,11 +235,17 @@ export default function ProgressTracker({ progress, exercises, onReset }: Progre
                       <p className="font-medium text-gray-800">{exercise?.name}</p>
                       <p className="text-sm text-gray-500">{timeStr}</p>
                     </div>
-                    {item.repetitions && (
+                    {item.tracking ? (
+                      <div className="text-right text-xs text-gray-500">
+                        {typeof item.tracking.reps === 'number' && <div>有效 {item.tracking.reps} 次</div>}
+                        {typeof item.tracking.maxPercent === 'number' && <div>最高 {item.tracking.maxPercent}%</div>}
+                        {typeof item.tracking.avgPercent === 'number' && <div>平均 {item.tracking.avgPercent}%</div>}
+                      </div>
+                    ) : item.repetitions ? (
                       <span className="text-sm text-gray-500">
                         {item.repetitions} 次
                       </span>
-                    )}
+                    ) : null}
                   </div>
                 );
               })}

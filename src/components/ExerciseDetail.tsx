@@ -1,13 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import PoseTracker from './PoseTracker';
 import PoseBodyTracker from './PoseBodyTracker';
-import { Exercise } from '../data/types';
+import { Exercise, TrackingSummary } from '../data/types';
 import { getExerciseTrackingProfile } from '../utils/trackingProfile';
 
 interface ExerciseDetailProps {
   exercise: Exercise;
   onBack: () => void;
-  onComplete: (exerciseId: string) => void;
+  onComplete: (exerciseId: string, repetitions?: number, tracking?: TrackingSummary) => void;
 }
 
 const categoryImages: Record<string, string> = {
@@ -46,6 +46,10 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
   const [camError, setCamError] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
   const trackingProfile = getExerciseTrackingProfile(exercise);
+  const [trackingSummary, setTrackingSummary] = useState<TrackingSummary | undefined>();
+  const handleTrackingSummary = useCallback((summary: TrackingSummary) => {
+    setTrackingSummary(summary);
+  }, []);
 
   // 開啟/關閉鏡頭
   const toggleCamera = async () => {
@@ -208,7 +212,7 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
           <div className="text-center py-4">
             <div className="text-2xl mb-3">🎉 練習完成！</div>
             <button onClick={() => { setIsCompleted(false); setTimeLeft(exercise.duration || 60); }} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">再練一次</button>
-            <button onClick={() => onComplete(exercise.id)} className="ml-2 px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">完成</button>
+            <button onClick={() => onComplete(exercise.id, trackingSummary?.reps, trackingSummary)} className="ml-2 px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">完成</button>
           </div>
         )}
       </div>
@@ -240,9 +244,9 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
               style={{ transform: 'scaleX(-1)' }}
             />
             {trackingProfile.module === 'pose' ? (
-              <PoseBodyTracker videoRef={videoRef} isTracking={showCamera} profile={trackingProfile} />
+              <PoseBodyTracker videoRef={videoRef} isTracking={showCamera} profile={trackingProfile} onTrackingSummary={handleTrackingSummary} />
             ) : (
-              <PoseTracker videoRef={videoRef} isTracking={showCamera} profile={trackingProfile} />
+              <PoseTracker videoRef={videoRef} isTracking={showCamera} profile={trackingProfile} onTrackingSummary={handleTrackingSummary} />
             )}
           </div>
         )}

@@ -4,7 +4,7 @@ import CategoryNav from './components/CategoryNav';
 import ExerciseList from './components/ExerciseList';
 import ExerciseDetail from './components/ExerciseDetail';
 import ProgressTracker from './components/ProgressTracker';
-import { Exercise, PatientProgress } from './data/types';
+import { Exercise, PatientProgress, TrackingSummary } from './data/types';
 import { exercises, categories } from './data/exercises';
 
 type View = 'home' | 'exercise' | 'progress';
@@ -27,7 +27,7 @@ function App() {
     localStorage.setItem('swallow-rehab-progress', JSON.stringify(newProgress));
   };
 
-  const completeExercise = (exerciseId: string, repetitions?: number) => {
+  const completeExercise = (exerciseId: string, repetitions?: number, tracking?: TrackingSummary) => {
     const now = new Date().toISOString();
 
     saveProgress([...progress, {
@@ -35,7 +35,8 @@ function App() {
       exerciseId,
       completed: true,
       repetitions: repetitions ?? 0,
-      duration: selectedExercise?.duration ?? 0
+      duration: selectedExercise?.duration ?? 0,
+      tracking
     }]);
   };
 

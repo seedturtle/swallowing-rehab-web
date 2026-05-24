@@ -6,11 +6,13 @@ import * as tf from '@tensorflow/tfjs-core';
 import '@tensorflow/tfjs-backend-webgl';
 import '@tensorflow/tfjs-backend-cpu';
 import type { TrackingProfile } from '../utils/trackingProfile';
+import type { TrackingSummary } from '../data/types';
 
 interface PoseBodyTrackerProps {
   videoRef: React.RefObject<HTMLVideoElement>;
   isTracking: boolean;
   profile: TrackingProfile;
+  onTrackingSummary?: (summary: TrackingSummary) => void;
 }
 
 type Keypoint = posedetection.Keypoint;
@@ -142,12 +144,12 @@ function bodyScore(pose: posedetection.Pose, profile: TrackingProfile): { percen
   return null;
 }
 
-export default function PoseBodyTracker({ videoRef, isTracking, profile }: PoseBodyTrackerProps) {
+export default function PoseBodyTracker({ videoRef, isTracking, profile, onTrackingSummary }: PoseBodyTrackerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const detectorRef = useRef<posedetection.PoseDetector | null>(null);
   const rafIdRef = useRef(0);
   const lastFrameAtRef = useRef(Date.now());
-  const trainingRef = useRef({ percent: 0, holdMs: 0, reps: 0, readyForNextRep: true });
+  const trainingRef = useRef({ percent: 0, holdMs: 0, reps: 0, readyForNextRep: true, maxPercent: 0, sumPercent: 0, samples: 0, totalHoldMs: 0 });
   const practiceCountdownStartedAtRef = useRef(0);
 
   const [loadProgress, setLoadProgress] = useState(0);
@@ -235,6 +237,13 @@ export default function PoseBodyTracker({ videoRef, isTracking, profile }: PoseB
               const now = Date.now();
               const delta = Math.min(500, Math.max(0, now - lastFrameAtRef.current));
               const current = { ...trainingRef.current, percent: score.percent };
+              if (practiceState === 'active') {
+                const capped = clamp(score.percent, 0, 100);
+                current.maxPercent = Math.max(current.maxPercent, capped);
+                current.sumPercent += capped;
+                current.samples += 1;
+                if (score.percent >= profile.targetPercent) current.totalHoldMs += delta;
+              }
               if (practiceState === 'active' && score.percent >= profile.targetPercent && current.readyForNextRep) {
                 current.holdMs = Math.min(HOLD_MS, current.holdMs + delta);
                 if (current.holdMs >= HOLD_MS) {
@@ -279,6 +288,22 @@ export default function PoseBodyTracker({ videoRef, isTracking, profile }: PoseB
       detectorRef.current = null;
     };
   }, [isTracking, videoRef, profile]);
+
+  useEffect(() => {
+    const current = trainingRef.current;
+    onTrackingSummary?.({
+      module: profile.module,
+      mode: profile.mode,
+      targetLabel: profile.targetLabel,
+      reps,
+      maxPercent: Math.round(current.maxPercent),
+      avgPercent: current.samples > 0 ? Math.round(current.sumPercent / current.samples) : undefined,
+      targetHoldSeconds: Number((current.totalHoldMs / 1000).toFixed(1)),
+      totalHoldSeconds: Number((current.totalHoldMs / 1000).toFixed(1)),
+      completedTarget: reps >= TARGET_REPS,
+      samples: current.samples,
+    });
+  }, [reps, percent, holdMs, profile, onTrackingSummary]);
 
   const displayPercent = practiceState === 'idle' ? 0 : clamp(percent, 0, 100);
 
@@ -346,7 +371,7 @@ export default function PoseBodyTracker({ videoRef, isTracking, profile }: PoseB
                 <button
                   type="button"
                   onClick={() => {
-                    trainingRef.current = { percent: 0, holdMs: 0, reps: 0, readyForNextRep: true };
+                    trainingRef.current = { percent: 0, holdMs: 0, reps: 0, readyForNextRep: true, maxPercent: 0, sumPercent: 0, samples: 0, totalHoldMs: 0 };
                     setPercent(0);
                     setHoldMs(0);
                     setReps(0);
@@ -361,7 +386,7 @@ export default function PoseBodyTracker({ videoRef, isTracking, profile }: PoseB
                 <button
                   type="button"
                   onClick={() => {
-                    trainingRef.current = { percent: 0, holdMs: 0, reps: 0, readyForNextRep: true };
+                    trainingRef.current = { percent: 0, holdMs: 0, reps: 0, readyForNextRep: true, maxPercent: 0, sumPercent: 0, samples: 0, totalHoldMs: 0 };
                     setPercent(0);
                     setHoldMs(0);
                     setReps(0);
