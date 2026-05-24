@@ -68,6 +68,44 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 }
 
 
+
+let faceModelsPromise: Promise<string> | null = null;
+let faceModelsBackend = '';
+
+async function ensureFaceModels(onProgress?: (message: string, progress?: number) => void) {
+  if (faceapi.nets.tinyFaceDetector.isLoaded && faceapi.nets.faceLandmark68TinyNet.isLoaded) {
+    return faceModelsBackend || 'cached';
+  }
+
+  if (!faceModelsPromise) {
+    faceModelsPromise = (async () => {
+      onProgress?.('初始化臉部辨識後端', 25);
+      const backend = await ensureFaceBackend(message => onProgress?.(message, 30));
+      faceModelsBackend = backend;
+
+      if (!faceapi.nets.tinyFaceDetector.isLoaded) {
+        onProgress?.(`首次載入 TinyFaceDetector（${backend}），請稍候`, 45);
+        await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+      }
+
+      if (!faceapi.nets.faceLandmark68TinyNet.isLoaded) {
+        onProgress?.('首次載入 FaceLandmark68Tiny，請稍候', 75);
+        await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL);
+      }
+
+      onProgress?.('臉部辨識模型已快取完成', 95);
+      return backend;
+    })().catch(err => {
+      faceModelsPromise = null;
+      throw err;
+    });
+  } else {
+    onProgress?.('臉部辨識模型載入中，沿用快取程序', 55);
+  }
+
+  return faceModelsPromise;
+}
+
 async function ensureFaceBackend(onProgress?: (message: string) => void) {
   const tf = faceapi.tf as any;
   if (!tf) return 'unknown';
@@ -510,25 +548,20 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
       }
 
       try {
-        setLoadProgress(25);
-        setLoadStep('初始化臉部辨識後端');
-        const backend = await withTimeout(ensureFaceBackend(step => setLoadStep(step)), 15000, 'FaceAPI backend');
-        if (cancelled) return;
-
-        setLoadProgress(40);
-        setLoadStep('載入 TinyFaceDetector');
-        setStatus(`載入模型：TinyFaceDetector（${backend}）...`);
-        await withTimeout(faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL), 15000, 'TinyFaceDetector');
-        if (cancelled) return;
-
-        setLoadProgress(70);
-        setLoadStep('載入 FaceLandmark68Tiny');
-        setStatus('載入模型：FaceLandmark68Tiny...');
-        await withTimeout(faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL), 15000, 'FaceLandmark68Tiny');
+        const backend = await withTimeout(
+          ensureFaceModels((message, progress) => {
+            setLoadStep(message);
+            if (typeof progress === 'number') setLoadProgress(progress);
+            setStatus(`${message}...`);
+          }),
+          45000,
+          'Face models',
+        );
+        setStatus(`臉部辨識模型已就緒（${backend}）`);
         if (cancelled) return;
       } catch (err) {
         setLoadStep('模型載入失敗');
-        setStatus(`模型載入失敗：${String(err)}`);
+        setStatus(`模型載入失敗：${String(err)}。請確認網路正常，重新整理後再試。`);
         setModelLoaded(false);
         return;
       }
