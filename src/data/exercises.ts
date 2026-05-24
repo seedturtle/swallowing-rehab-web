@@ -45,6 +45,7 @@ export const exercises: Exercise[] = [
   // 舌頭運動
   {
     id: 'tongue-1',
+    videoUrl: '/videos/舌頭伸出收回.mp4',
     name: '舌頭伸出收回',
     category: 'tongue',
     difficulty: 'basic',
@@ -65,6 +66,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'tongue-2',
+    videoUrl: '/videos/舌頭左右移動.mp4',
     name: '舌頭左右移動',
     category: 'tongue',
     difficulty: 'basic',
@@ -82,6 +84,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'tongue-3',
+    videoUrl: '/videos/舌頭上下運動.mp4',
     name: '舌頭上下運動',
     category: 'tongue',
     difficulty: 'intermediate',
@@ -100,6 +103,7 @@ export const exercises: Exercise[] = [
   // 嘴唇運動
   {
     id: 'lip-1',
+    videoUrl: '/videos/嘴唇圓圈運動.mp4',
     name: '嘴唇圓圈運動',
     category: 'lip',
     difficulty: 'basic',
@@ -115,6 +119,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'lip-2',
+    videoUrl: '/videos/嘴唇張開閉合.mp4',
     name: '嘴唇張開閉合',
     category: 'lip',
     difficulty: 'basic',
@@ -132,6 +137,7 @@ export const exercises: Exercise[] = [
   // 咀嚼運動
   {
     id: 'chewing-1',
+    videoUrl: '/videos/咀嚼模擬運動.mp4',
     name: '咀嚼模擬運動',
     category: 'chewing',
     difficulty: 'intermediate',
@@ -150,6 +156,7 @@ export const exercises: Exercise[] = [
   // 吞嚥練習
   {
     id: 'swallow-1',
+    videoUrl: '/videos/用力吞嚥練習（Masako）.mp4',
     name: '用力吞嚥練習（Masako）',
     category: 'swallow',
     difficulty: 'advanced',
@@ -167,6 +174,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'swallow-2',
+    videoUrl: '/videos/門德爾森手法（Mendelsohn）.mp4',
     name: '門德爾森手法（Mendelsohn）',
     category: 'swallow',
     difficulty: 'advanced',
@@ -184,6 +192,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'swallow-3',
+    videoUrl: '/videos/努德森吞嚥法.mp4',
     name: '努德森吞嚥法',
     category: 'swallow',
     difficulty: 'intermediate',
@@ -201,6 +210,7 @@ export const exercises: Exercise[] = [
   // 姿勢調整
   {
     id: 'posture-1',
+    videoUrl: '/videos/正確坐姿練習.mp4',
     name: '正確坐姿練習',
     category: 'posture',
     difficulty: 'basic',
@@ -218,6 +228,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'posture-2',
+    videoUrl: '/videos/頭部抬高姿勢.mp4',
     name: '頭部抬高姿勢',
     category: 'posture',
     difficulty: 'basic',
@@ -240,6 +251,7 @@ export const exercises: Exercise[] = [
   // 頸部運動
   {
     id: 'neck-1',
+    videoUrl: '/videos/頸部前彎後仰.mp4',
     name: '頸部前彎後仰',
     category: 'neck',
     difficulty: 'basic',
@@ -259,6 +271,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'neck-2',
+    videoUrl: '/videos/頸部左右旋轉.mp4',
     name: '頸部左右旋轉',
     category: 'neck',
     difficulty: 'basic',
@@ -278,6 +291,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'neck-3',
+    videoUrl: '/videos/頸部側彎伸展.mp4',
     name: '頸部側彎伸展',
     category: 'neck',
     difficulty: 'basic',
@@ -297,6 +311,7 @@ export const exercises: Exercise[] = [
   // 肩膀運動
   {
     id: 'shoulder-1',
+    videoUrl: '/videos/肩膀聳肩運動.mp4',
     name: '肩膀聳肩運動',
     category: 'shoulder',
     difficulty: 'basic',
@@ -313,6 +328,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'shoulder-2',
+    videoUrl: '/videos/肩胛骨後收運動.mp4',
     name: '肩胛骨後收運動',
     category: 'shoulder',
     difficulty: 'intermediate',
