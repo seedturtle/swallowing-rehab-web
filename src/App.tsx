@@ -106,7 +106,7 @@ function App() {
           {/* Footer — 僅首頁顯示 */}
           <div className="text-center text-xs text-gray-400 mt-8 pb-4">
             耳鼻喉科 洪士涵醫師 | 2026年5月23日<br />
-            {visitCount !== null ? `造訪 ${visitCount} 次` : '載入中...'}
+            `造訪 ${visitCount ?? 0} 次`
           </div>
         </div>
       )}
