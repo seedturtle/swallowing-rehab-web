@@ -33,7 +33,7 @@ type TrainingState = {
 };
 
 const MODEL_URL = '/models';
-const HOLD_MS = 3000;
+const HOLD_MS = 6000;
 const TARGET_OPEN_PERCENT = 80;
 const TARGET_REPS = 10;
 
@@ -65,7 +65,7 @@ const CALIBRATION_STEPS: Array<{
     key: 'pucker',
     title: '噘嘴／圓唇',
     instruction: '像發「ㄨ」的嘴型，嘴唇向前收圓。',
-    tip: '維持 3 秒，系統會自動記錄。',
+    tip: '維持 6 秒，系統會自動記錄。',
   },
 ];
 
@@ -538,107 +538,109 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
   const displayOpenPercent = clamp(openPercent, 0, 100);
 
   return (
-    <div className="absolute inset-0 w-full h-full">
+    <div className="absolute inset-0 w-full h-full pointer-events-none">
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full object-contain pointer-events-none"
         style={{ transform: 'scaleX(-1)' }}
       />
 
-      <div className="absolute top-2 left-2 right-2 flex flex-wrap items-center justify-between gap-2 text-xs">
-        <span className={`px-2 py-1 rounded text-white ${modelLoaded ? 'bg-green-600' : 'bg-amber-600'}`}>
-          {modelLoaded ? '模型已就緒' : `模型載入中 ${loadProgress}%`}
-        </span>
-        <span className="px-2 py-1 rounded bg-slate-900/80 text-white">
-          臉：{faceCount}｜偵測：{detectCount}
-        </span>
+      <div className="absolute left-2 right-2 top-2 flex flex-wrap items-start justify-between gap-2 text-xs">
+        <div className="flex flex-col gap-1">
+          <span className={`w-fit rounded px-2 py-1 text-white shadow ${modelLoaded ? 'bg-green-600/90' : 'bg-amber-600/90'}`}>
+            {modelLoaded ? '模型已就緒' : `模型載入中 ${loadProgress}%`}
+          </span>
+          <span className="w-fit rounded bg-slate-900/65 px-2 py-1 text-white shadow">
+            臉：{faceCount}｜偵測：{detectCount}
+          </span>
+        </div>
+
+        {modelLoaded && !calibrationUi.active && !isCalibrated && (
+          <button
+            type="button"
+            onClick={startCalibration}
+            disabled={!latestMetrics}
+            className="pointer-events-auto rounded-lg bg-purple-600/95 px-3 py-2 text-sm font-semibold text-white shadow disabled:opacity-50"
+          >
+            {latestMetrics ? '開始校正' : '臉入鏡後校正'}
+          </button>
+        )}
+
+        {modelLoaded && isCalibrated && !calibrationUi.active && (
+          <div className="flex flex-col items-end gap-1">
+            <div className="rounded-lg bg-slate-900/70 px-2 py-1 text-right text-white shadow">
+              <div className="text-[11px] text-slate-200">目前張口</div>
+              <div className={`text-lg font-bold leading-tight ${displayOpenPercent >= TARGET_OPEN_PERCENT ? 'text-green-300' : 'text-amber-300'}`}>
+                {displayOpenPercent}%
+              </div>
+            </div>
+            <div className="flex gap-1">
+              <button type="button" onClick={startCalibration} className="pointer-events-auto rounded bg-slate-800/85 px-2 py-1 text-[11px] text-white shadow">
+                重新校正
+              </button>
+              <button type="button" onClick={resetTraining} className="pointer-events-auto rounded bg-slate-800/85 px-2 py-1 text-[11px] text-white shadow">
+                重置
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {!modelLoaded && isTracking && (
-        <div className="absolute left-2 right-2 bottom-12 rounded-lg bg-slate-900/90 px-3 py-2 text-white shadow-lg">
+        <div className="absolute left-2 right-2 top-16 rounded-lg bg-slate-900/75 px-3 py-2 text-white shadow">
           <div className="mb-1 flex items-center justify-between text-xs">
             <span>{loadStep}</span>
             <span>{loadProgress}%</span>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-700">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-700">
             <div className="h-full rounded-full bg-amber-400 transition-all duration-300" style={{ width: `${loadProgress}%` }} />
           </div>
         </div>
       )}
 
-      {modelLoaded && !calibrationUi.active && !isCalibrated && (
-        <div className="absolute left-2 right-2 bottom-12 rounded-xl bg-slate-900/90 p-3 text-white shadow-lg">
-          <div className="text-sm font-bold">臉部動作校正</div>
-          <p className="mt-1 text-xs leading-relaxed text-slate-200">
-            校正會記錄你的自然閉口、最大張口、最大微笑和噘嘴。之後系統會用你的臉部比例計算，不會只看像素距離。
-          </p>
-          <button
-            type="button"
-            onClick={startCalibration}
-            disabled={!latestMetrics}
-            className="mt-2 w-full rounded-lg bg-purple-600 py-2 text-sm font-semibold text-white disabled:opacity-50"
-          >
-            {latestMetrics ? '開始校正' : '請先讓臉出現在畫面中'}
-          </button>
-        </div>
-      )}
-
       {modelLoaded && calibrationUi.active && currentStep && (
-        <div className="absolute left-2 right-2 bottom-12 rounded-xl bg-purple-950/95 p-3 text-white shadow-lg">
-          <div className="flex items-center justify-between text-xs text-purple-100">
+        <div className="absolute left-2 right-2 top-16 rounded-xl bg-purple-950/80 p-2 text-white shadow-lg">
+          <div className="flex items-center justify-between text-[11px] text-purple-100">
             <span>校正 {calibrationUi.stepIndex + 1} / {CALIBRATION_STEPS.length}</span>
             <span>{Math.ceil(calibrationUi.remainingMs / 1000)} 秒</span>
           </div>
-          <div className="mt-1 text-lg font-bold">{currentStep.title}</div>
-          <div className="text-sm">{currentStep.instruction}</div>
-          <div className="mt-1 text-xs text-purple-100">{currentStep.tip}</div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-purple-800">
+          <div className="mt-0.5 text-base font-bold leading-tight">{currentStep.title}</div>
+          <div className="text-xs leading-snug">{currentStep.instruction}</div>
+          <div className="mt-1 text-[11px] leading-snug text-purple-100">{currentStep.tip}</div>
+          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-purple-800">
             <div className="h-full rounded-full bg-purple-300 transition-all" style={{ width: `${100 - (calibrationUi.remainingMs / HOLD_MS) * 100}%` }} />
           </div>
         </div>
       )}
 
       {modelLoaded && isCalibrated && !calibrationUi.active && (
-        <div className="absolute left-2 right-2 bottom-12 rounded-xl bg-slate-900/90 p-3 text-white shadow-lg">
-          <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="absolute left-2 right-2 top-[86px] rounded-lg bg-slate-900/60 px-2 py-1.5 text-white shadow">
+          <div className="grid grid-cols-3 gap-1 text-center text-[11px]">
             <div>
-              <div className="text-sm font-bold">張口練習量化</div>
-              <div className="text-xs text-slate-300">張到目標以上並維持 3 秒，算 1 次有效練習。</div>
+              <div className="text-slate-200">目標</div>
+              <div className="font-bold text-green-300">{TARGET_OPEN_PERCENT}%</div>
             </div>
-            <button type="button" onClick={startCalibration} className="rounded bg-slate-700 px-2 py-1 text-xs">
-              重新校正
-            </button>
-          </div>
-          <div className="grid grid-cols-3 gap-2 text-center text-xs">
-            <div className="rounded-lg bg-slate-800 p-2">
-              <div className="text-slate-300">目前張口</div>
-              <div className={`text-2xl font-bold ${displayOpenPercent >= TARGET_OPEN_PERCENT ? 'text-green-300' : 'text-amber-300'}`}>{displayOpenPercent}%</div>
+            <div>
+              <div className="text-slate-200">維持</div>
+              <div className="font-bold text-sky-300">{(training.holdMs / 1000).toFixed(1)} / {(HOLD_MS / 1000).toFixed(0)}秒</div>
             </div>
-            <div className="rounded-lg bg-slate-800 p-2">
-              <div className="text-slate-300">維持時間</div>
-              <div className="text-2xl font-bold text-sky-300">{(training.holdMs / 1000).toFixed(1)}秒</div>
-            </div>
-            <div className="rounded-lg bg-slate-800 p-2">
-              <div className="text-slate-300">有效次數</div>
-              <div className="text-2xl font-bold text-purple-300">{training.reps}/{TARGET_REPS}</div>
+            <div>
+              <div className="text-slate-200">有效</div>
+              <div className="font-bold text-purple-300">{training.reps}/{TARGET_REPS}</div>
             </div>
           </div>
-          <div className="mt-2 text-xs text-slate-300">目標：至少 {TARGET_OPEN_PERCENT}%</div>
-          <div className="relative mt-1 h-3 overflow-hidden rounded-full bg-slate-700">
+          <div className="relative mt-1 h-1.5 overflow-hidden rounded-full bg-slate-700">
             <div className="h-full rounded-full bg-amber-400 transition-all" style={{ width: `${displayOpenPercent}%` }} />
             <div className="absolute top-0 h-full w-0.5 bg-green-300" style={{ left: `${TARGET_OPEN_PERCENT}%` }} />
           </div>
-          <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-700">
+          <div className="mt-1 h-1 overflow-hidden rounded-full bg-slate-700">
             <div className="h-full rounded-full bg-green-400 transition-all" style={{ width: `${holdPercent}%` }} />
           </div>
-          <button type="button" onClick={resetTraining} className="mt-2 w-full rounded-lg bg-slate-700 py-1.5 text-xs">
-            重置練習次數
-          </button>
         </div>
       )}
 
-      <div className="absolute bottom-2 left-2 right-2 rounded bg-slate-900/80 px-3 py-2 text-center text-xs text-white">
-        {calibrationUi.message !== '尚未校正' ? calibrationUi.message : status}
+      <div className="absolute bottom-2 left-2 right-2 rounded bg-slate-900/55 px-2 py-1 text-center text-[11px] leading-snug text-white">
+        {calibrationUi.active && currentStep ? `${currentStep.title}｜${Math.ceil(calibrationUi.remainingMs / 1000)} 秒` : status}
       </div>
     </div>
   );
