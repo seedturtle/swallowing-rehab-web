@@ -13,21 +13,35 @@ function App() {
   const [currentView, setCurrentView] = useState<View>('home');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
-
   const [visitCount, setVisitCount] = useState<number | null>(null);
 
+  // ✅ 只在第一次（全新瀏覽器）才遞增計數
   useEffect(() => {
     const VISITOR_KEY = 'swallow-rehab-visitor-id';
+    const VISITED_KEY = 'swallow-rehab-visited';
+
     let visitorId = localStorage.getItem(VISITOR_KEY);
     if (!visitorId) {
       visitorId = Date.now().toString(36) + Math.random().toString(36).slice(2);
       localStorage.setItem(VISITOR_KEY, visitorId);
     }
 
-    fetch('https://seedturtle.zo.space/api/counter', { method: 'POST' })
-      .then(r => r.json())
-      .then(d => setVisitCount(d.count))
-      .catch(() => setVisitCount(1));
+    const alreadyVisited = localStorage.getItem(VISITED_KEY) === '1';
+
+    if (alreadyVisited) {
+      fetch('https://seedturtle.zo.space/api/counter')
+        .then(r => r.json())
+        .then(d => setVisitCount(d.count))
+        .catch(() => setVisitCount(null));
+    } else {
+      fetch('https://seedturtle.zo.space/api/counter', { method: 'POST' })
+        .then(r => r.json())
+        .then(d => {
+          setVisitCount(d.count);
+          localStorage.setItem(VISITED_KEY, '1');
+        })
+        .catch(() => setVisitCount(null));
+    }
   }, []);
 
   const [progress, setProgress] = useState<PatientProgress[]>(() => {
