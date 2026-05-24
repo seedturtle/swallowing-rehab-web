@@ -17,7 +17,7 @@ type FaceMetrics = {
   mouthAspectRatio: number;
   pointCount: number;
 };
-type CalibrationKey = 'closed' | 'open' | 'smile' | 'pucker';
+type CalibrationKey = 'closed' | 'open' | 'smile' | 'pucker' | 'neutralPose' | 'targetPose';
 type CalibrationValues = Record<CalibrationKey, FaceMetrics | null>;
 
 type CalibrationUi = {
@@ -237,7 +237,7 @@ function drawLandmarks(canvas: HTMLCanvasElement, video: HTMLVideoElement, resul
 }
 
 function defaultCalibration(): CalibrationValues {
-  return { closed: null, open: null, smile: null, pucker: null };
+  return { closed: null, open: null, smile: null, pucker: null, neutralPose: null, targetPose: null };
 }
 
 function calibrationComplete(values: CalibrationValues, profile: TrackingProfile) {
@@ -250,7 +250,7 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
   const rafIdRef = useRef(0);
   const activeRef = useRef(false);
   const lastDetectedAtRef = useRef(Date.now());
-  const calibrationSamplesRef = useRef<Record<CalibrationKey, FaceMetrics[]>>({ closed: [], open: [], smile: [], pucker: [] });
+  const calibrationSamplesRef = useRef<Record<CalibrationKey, FaceMetrics[]>>({ closed: [], open: [], smile: [], pucker: [], neutralPose: [], targetPose: [] });
   const calibrationStartedAtRef = useRef(0);
   const calibrationStepIndexRef = useRef(-1);
   const trainingRef = useRef<TrainingState>({ openPercent: 0, holdMs: 0, reps: 0, readyForNextRep: true });
@@ -274,7 +274,7 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
 
   const startCalibration = () => {
     if (!profile.quantifiable || profile.calibrationSteps.length === 0) return;
-    calibrationSamplesRef.current = { closed: [], open: [], smile: [], pucker: [] };
+    calibrationSamplesRef.current = { closed: [], open: [], smile: [], pucker: [], neutralPose: [], targetPose: [] };
     calibrationStartedAtRef.current = Date.now();
     calibrationStepIndexRef.current = 0;
     setCalibration(defaultCalibration());
@@ -318,6 +318,8 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
         open: meanMetrics(calibrationSamplesRef.current.open),
         smile: meanMetrics(calibrationSamplesRef.current.smile),
         pucker: meanMetrics(calibrationSamplesRef.current.pucker),
+        neutralPose: meanMetrics(calibrationSamplesRef.current.neutralPose),
+        targetPose: meanMetrics(calibrationSamplesRef.current.targetPose),
       };
       setCalibration(nextCalibration);
       calibrationStepIndexRef.current = -1;

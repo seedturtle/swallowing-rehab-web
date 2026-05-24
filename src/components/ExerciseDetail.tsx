@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import PoseTracker from './PoseTracker';
+import PoseBodyTracker from './PoseBodyTracker';
 import { Exercise } from '../data/types';
 import { getExerciseTrackingProfile } from '../utils/trackingProfile';
 
@@ -238,7 +239,11 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
               className="absolute inset-0 w-full h-full rounded-lg object-contain"
               style={{ transform: 'scaleX(-1)' }}
             />
-            <PoseTracker videoRef={videoRef} isTracking={showCamera} profile={trackingProfile} />
+            {trackingProfile.module === 'pose' ? (
+              <PoseBodyTracker videoRef={videoRef} isTracking={showCamera} profile={trackingProfile} />
+            ) : (
+              <PoseTracker videoRef={videoRef} isTracking={showCamera} profile={trackingProfile} />
+            )}
           </div>
         )}
       </div>

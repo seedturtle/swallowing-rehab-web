@@ -1,6 +1,14 @@
 import type { Exercise } from '../data/types';
 
-export type TrackingMode = 'mouth-open' | 'lip-pucker' | 'smile' | 'self-view';
+export type TrackingModule = 'face' | 'pose' | 'self-view';
+export type TrackingMode =
+  | 'mouth-open'
+  | 'lip-pucker'
+  | 'smile'
+  | 'pose-neck'
+  | 'pose-arm'
+  | 'pose-posture'
+  | 'self-view';
 export type CalibrationKey = 'closed' | 'open' | 'smile' | 'pucker';
 
 export type TrackingCalibrationStep = {
@@ -11,6 +19,7 @@ export type TrackingCalibrationStep = {
 };
 
 export type TrackingProfile = {
+  module: TrackingModule;
   mode: TrackingMode;
   quantifiable: boolean;
   title: string;
@@ -29,10 +38,11 @@ const closedStep: TrackingCalibrationStep = {
 };
 
 const mouthOpenProfile: TrackingProfile = {
+  module: 'face',
   mode: 'mouth-open',
   quantifiable: true,
   title: '張口幅度量化',
-  targetLabel: '目前張口',
+  targetLabel: '動作到位',
   targetPercent: 80,
   patientNotice: '本項目打開鏡頭後，可以利用臉部辨識量化張口幅度。系統會用你的臉部比例做校正，因此手機拿近或拿遠時，數值仍會盡量保持一致。',
   metricNote: '量化方式：張口距離除以雙眼中心距離，再依你的閉口與最大張口校正成 0–100%。',
@@ -48,10 +58,11 @@ const mouthOpenProfile: TrackingProfile = {
 };
 
 const lipPuckerProfile: TrackingProfile = {
+  module: 'face',
   mode: 'lip-pucker',
   quantifiable: true,
   title: '圓唇程度量化',
-  targetLabel: '圓唇程度',
+  targetLabel: '動作到位',
   targetPercent: 80,
   patientNotice: '本項目打開鏡頭後，可以利用臉部辨識量化嘴唇收圓程度。系統會比較自然嘴型與最大圓唇嘴型，換算成個人化百分比。',
   metricNote: '量化方式：嘴角寬度變窄的程度除以雙眼中心距離，再依你的自然嘴型與最大圓唇校正成 0–100%。',
@@ -67,10 +78,11 @@ const lipPuckerProfile: TrackingProfile = {
 };
 
 const smileProfile: TrackingProfile = {
+  module: 'face',
   mode: 'smile',
   quantifiable: true,
   title: '微笑外展量化',
-  targetLabel: '微笑程度',
+  targetLabel: '動作到位',
   targetPercent: 80,
   patientNotice: '本項目打開鏡頭後，可以利用臉部辨識量化嘴角左右外展程度。系統會比較自然表情與最大微笑，換算成個人化百分比。',
   metricNote: '量化方式：嘴角寬度增加的程度除以雙眼中心距離，再依你的自然表情與最大微笑校正成 0–100%。',
@@ -85,13 +97,49 @@ const smileProfile: TrackingProfile = {
   ],
 };
 
+function poseProfile(mode: 'pose-neck' | 'pose-arm' | 'pose-posture', title: string, notice: string, metricNote: string): TrackingProfile {
+  return {
+    module: 'pose',
+    mode,
+    quantifiable: true,
+    title,
+    targetLabel: '動作到位',
+    targetPercent: 80,
+    patientNotice: notice,
+    metricNote,
+    calibrationSteps: [],
+  };
+}
+
+const poseNeckProfile = poseProfile(
+  'pose-neck',
+  '頭頸姿勢到位程度',
+  '本項目打開鏡頭後，會利用身體骨架辨識輔助觀察頭頸姿勢，並以 0–100% 顯示動作到位程度。',
+  '量化方式：追蹤鼻子、肩膀等骨架點，估計頭部位置與肩膀中線的相對變化。此為輔助回饋，仍需依治療師指示練習。',
+);
+
+const poseArmProfile = poseProfile(
+  'pose-arm',
+  '手臂動作到位程度',
+  '本項目打開鏡頭後，會利用身體骨架辨識追蹤肩膀、手肘、手腕位置，並以 0–100% 顯示手臂是否舉到目標位置。',
+  '量化方式：以肩膀為基準，追蹤手腕上舉或外展位置。鏡頭需能看到肩膀與手臂。',
+);
+
+const posePostureProfile = poseProfile(
+  'pose-posture',
+  '坐姿到位程度',
+  '本項目打開鏡頭後，會利用身體骨架辨識輔助觀察坐姿與肩膀是否平穩，並以 0–100% 顯示姿勢到位程度。',
+  '量化方式：追蹤雙肩、鼻子與身體中線，估計是否坐直、肩膀是否平衡。此分數為輔助提醒。',
+);
+
 const selfViewProfile: TrackingProfile = {
+  module: 'self-view',
   mode: 'self-view',
   quantifiable: false,
   title: '鏡頭自我觀察',
   targetLabel: '自我觀察',
   targetPercent: 0,
-  patientNotice: '本項目的動作目前不適合只用臉部五官點可靠量化。開啟鏡頭後，主要提供患者看著自己的臉部或姿勢練習，請依照步驟與治療師指示進行。',
+  patientNotice: '本項目的動作目前不適合只用鏡頭可靠量化。開啟鏡頭後，主要提供患者看著自己的臉部或姿勢練習，請依照步驟與治療師指示進行。',
   metricNote: '為避免錯誤數值誤導，本項目不顯示量化分數。',
   calibrationSteps: [],
 };
@@ -100,5 +148,8 @@ export function getExerciseTrackingProfile(exercise: Exercise): TrackingProfile 
   if (['facial-2', 'lip-2', 'trismus-1', 'trismus-2'].includes(exercise.id)) return mouthOpenProfile;
   if (exercise.id === 'lip-1') return lipPuckerProfile;
   if (exercise.name.includes('微笑')) return smileProfile;
+  if (exercise.category === 'neck') return poseNeckProfile;
+  if (exercise.category === 'shoulder') return poseArmProfile;
+  if (exercise.category === 'posture') return posePostureProfile;
   return selfViewProfile;
 }
