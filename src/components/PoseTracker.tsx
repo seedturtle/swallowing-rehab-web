@@ -67,6 +67,31 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
+
+async function ensureFaceBackend(onProgress?: (message: string) => void) {
+  const tf = faceapi.tf as any;
+  if (!tf) return 'unknown';
+
+  const current = typeof tf.getBackend === 'function' ? tf.getBackend() : '';
+  if (current && current !== 'webgpu') {
+    await tf.ready();
+    return current;
+  }
+
+  try {
+    onProgress?.('初始化臉部辨識 WebGL 後端');
+    await tf.setBackend('webgl');
+    await tf.ready();
+    return 'webgl';
+  } catch (webglError) {
+    console.warn('FaceAPI WebGL backend failed, falling back to CPU', webglError);
+    onProgress?.('WebGL 不可用，臉部辨識改用 CPU 後端');
+    await tf.setBackend('cpu');
+    await tf.ready();
+    return 'cpu';
+  }
+}
+
 function distance(a: Point, b: Point) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
@@ -485,9 +510,14 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
       }
 
       try {
-        setLoadProgress(35);
+        setLoadProgress(25);
+        setLoadStep('初始化臉部辨識後端');
+        const backend = await withTimeout(ensureFaceBackend(step => setLoadStep(step)), 15000, 'FaceAPI backend');
+        if (cancelled) return;
+
+        setLoadProgress(40);
         setLoadStep('載入 TinyFaceDetector');
-        setStatus('載入模型：TinyFaceDetector...');
+        setStatus(`載入模型：TinyFaceDetector（${backend}）...`);
         await withTimeout(faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL), 15000, 'TinyFaceDetector');
         if (cancelled) return;
 
