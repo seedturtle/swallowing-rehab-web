@@ -112,6 +112,8 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
   const [modelLoaded, setModelLoaded] = useState(false);
   const [faceCount, setFaceCount] = useState(0);
   const [detectCount, setDetectCount] = useState(0);
+  const [loadProgress, setLoadProgress] = useState(0);
+  const [loadStep, setLoadStep] = useState('尚未啟動');
 
   useEffect(() => {
     let cancelled = false;
@@ -124,12 +126,16 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
         setModelLoaded(false);
         setFaceCount(0);
         setDetectCount(0);
+        setLoadProgress(0);
+        setLoadStep('尚未啟動');
         return;
       }
 
       setModelLoaded(false);
       setFaceCount(0);
       setDetectCount(0);
+      setLoadProgress(5);
+      setLoadStep('初始化相機');
       setStatus('等待鏡頭畫面...');
 
       await new Promise<void>(resolve => {
@@ -146,6 +152,8 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
       });
 
       if (cancelled) return;
+      setLoadProgress(25);
+      setLoadStep('相機已啟動');
       if (!canvas.width || !canvas.height) {
         canvas.width = 640;
         canvas.height = 480;
@@ -158,19 +166,26 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
       }
 
       try {
+        setLoadProgress(35);
+        setLoadStep('載入 TinyFaceDetector');
         setStatus('載入模型：TinyFaceDetector...');
         await withTimeout(faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL), 15000, 'TinyFaceDetector');
         if (cancelled) return;
 
+        setLoadProgress(70);
+        setLoadStep('載入 FaceLandmark68Tiny');
         setStatus('載入模型：FaceLandmark68Tiny...');
         await withTimeout(faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL), 15000, 'FaceLandmark68Tiny');
         if (cancelled) return;
       } catch (err) {
+        setLoadStep('模型載入失敗');
         setStatus(`模型載入失敗：${String(err)}`);
         setModelLoaded(false);
         return;
       }
 
+      setLoadProgress(100);
+      setLoadStep('模型準備完成');
       setModelLoaded(true);
       setStatus('模型已就緒，請面對鏡頭');
       lastDetectedAtRef.current = Date.now();
@@ -231,12 +246,26 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
       />
       <div className="absolute top-2 left-2 right-2 flex flex-wrap items-center justify-between gap-2 text-xs">
         <span className={`px-2 py-1 rounded text-white ${modelLoaded ? 'bg-green-600' : 'bg-amber-600'}`}>
-          {modelLoaded ? '模型已就緒' : '模型載入中'}
+          {modelLoaded ? '模型已就緒' : `模型載入中 ${loadProgress}%`}
         </span>
         <span className="px-2 py-1 rounded bg-slate-900/80 text-white">
           臉：{faceCount}｜偵測：{detectCount}
         </span>
       </div>
+      {!modelLoaded && isTracking && (
+        <div className="absolute left-2 right-2 bottom-12 rounded-lg bg-slate-900/90 px-3 py-2 text-white shadow-lg">
+          <div className="mb-1 flex items-center justify-between text-xs">
+            <span>{loadStep}</span>
+            <span>{loadProgress}%</span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-700">
+            <div
+              className="h-full rounded-full bg-amber-400 transition-all duration-300"
+              style={{ width: `${loadProgress}%` }}
+            />
+          </div>
+        </div>
+      )}
       <div className="absolute bottom-2 left-2 right-2 rounded bg-slate-900/80 px-3 py-2 text-center text-xs text-white">
         {status}
       </div>
