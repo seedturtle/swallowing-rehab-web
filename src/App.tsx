@@ -114,17 +114,7 @@ function App() {
         />
       )}
 
-      {/* Footer */}
-      <footer style={{ padding: '16px', textAlign: 'center', background: '#1e293b', color: '#94a3b8', fontSize: '12px' }}>
-        <p style={{ margin: '0 0 8px' }}>
-          由{' '}
-          <a href="https://counter12.com" target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6' }}>
-            counter12.com
-          </a>{' '}
-          提供計數服務
-        </p>
-        <p style={{ margin: '8px 0 0' }}>© 2024 洪士涵醫師復健系統</p>
-      </footer>
+      {/* Footer — 已移除計數服務 */}
     </div>
   );
 }
