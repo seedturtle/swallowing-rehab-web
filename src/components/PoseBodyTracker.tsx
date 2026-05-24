@@ -1,12 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
-
-type PracticeState = 'idle' | 'countdown' | 'active';
 import * as posedetection from '@tensorflow-models/pose-detection';
 import * as tf from '@tensorflow/tfjs-core';
 import '@tensorflow/tfjs-backend-webgl';
 import '@tensorflow/tfjs-backend-cpu';
 import type { TrackingProfile } from '../utils/trackingProfile';
 import type { TrackingSummary } from '../data/types';
+
+type PracticeState = 'idle' | 'countdown' | 'active';
+type CalibrationStep = 'neutral' | 'maximum';
+type Keypoint = posedetection.Keypoint;
+
+type PoseMeasure = {
+  raw: number;
+  note: string;
+};
+
+type PoseCalibration = {
+  neutral: number | null;
+  maximum: number | null;
+};
 
 interface PoseBodyTrackerProps {
   videoRef: React.RefObject<HTMLVideoElement>;
@@ -15,9 +27,8 @@ interface PoseBodyTrackerProps {
   onTrackingSummary?: (summary: TrackingSummary) => void;
 }
 
-type Keypoint = posedetection.Keypoint;
-
 const HOLD_MS = 6000;
+const CALIBRATION_MS = 6000;
 const TARGET_REPS = 10;
 
 const EDGES: Array<[string, string]> = [
@@ -33,6 +44,11 @@ const EDGES: Array<[string, string]> = [
 
 function clamp(value: number, min = 0, max = 100) {
   return Math.min(max, Math.max(min, value));
+}
+
+function average(values: number[]) {
+  if (!values.length) return null;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
 function getKeypoint(pose: posedetection.Pose, name: string): Keypoint | null {
@@ -74,7 +90,6 @@ function drawSkeleton(ctx: CanvasRenderingContext2D, pose: posedetection.Pose) {
   ctx.restore();
 }
 
-
 async function ensureTfBackend(onProgress?: (message: string) => void) {
   const current = tf.getBackend();
   if (current && current !== 'webgpu') {
@@ -96,8 +111,12 @@ async function ensureTfBackend(onProgress?: (message: string) => void) {
   }
 }
 
-function bodyScore(pose: posedetection.Pose, profile: TrackingProfile): { percent: number; note: string } | null {
+function poseRawMeasure(pose: posedetection.Pose, profile: TrackingProfile): PoseMeasure | null {
   const nose = getKeypoint(pose, 'nose');
+  const leftEye = getKeypoint(pose, 'left_eye');
+  const rightEye = getKeypoint(pose, 'right_eye');
+  const leftEar = getKeypoint(pose, 'left_ear');
+  const rightEar = getKeypoint(pose, 'right_ear');
   const leftShoulder = getKeypoint(pose, 'left_shoulder');
   const rightShoulder = getKeypoint(pose, 'right_shoulder');
   const leftWrist = getKeypoint(pose, 'left_wrist');
@@ -111,37 +130,57 @@ function bodyScore(pose: posedetection.Pose, profile: TrackingProfile): { percen
 
   if (profile.mode === 'pose-arm') {
     const candidates: number[] = [];
-    for (const pair of [[leftShoulder, leftWrist], [rightShoulder, rightWrist]] as const) {
-      const [shoulder, wrist] = pair;
+    for (const [shoulder, wrist] of [[leftShoulder, leftWrist], [rightShoulder, rightWrist]] as const) {
       if (!shoulder || !wrist) continue;
       const verticalLift = (shoulder.y - wrist.y) / shoulderWidth;
       const sideReach = Math.abs(wrist.x - shoulder.x) / shoulderWidth;
-      candidates.push(clamp(Math.max(verticalLift, sideReach) * 100, 0, 120));
+      candidates.push(Math.max(verticalLift, sideReach));
     }
-    if (candidates.length === 0) return null;
-    const percent = clamp(Math.max(...candidates), 0, 100);
-    return { percent, note: leftElbow || rightElbow ? '已追蹤肩膀、手肘、手腕' : '請讓手肘與手腕入鏡' };
+    if (!candidates.length) return null;
+    return {
+      raw: Math.max(...candidates),
+      note: leftElbow || rightElbow ? '已追蹤肩膀、手肘、手腕' : '請讓手肘與手腕入鏡',
+    };
   }
 
   if (profile.mode === 'pose-neck') {
     if (!nose) return null;
-    const dx = Math.abs(nose.x - shoulderMid.x) / shoulderWidth;
+    const dx = (nose.x - shoulderMid.x) / shoulderWidth;
     const dy = (shoulderMid.y - nose.y) / shoulderWidth;
-    const centered = clamp(100 - dx * 160, 0, 100);
-    const visibleHead = clamp((dy - 0.35) * 120, 0, 100);
-    const percent = clamp(centered * 0.65 + visibleHead * 0.35, 0, 100);
-    return { percent, note: '已追蹤鼻子與雙肩，提供頭頸姿勢輔助回饋' };
+    const eyeTilt = leftEye && rightEye ? Math.abs(leftEye.y - rightEye.y) / shoulderWidth : 0;
+    const earShift = leftEar && rightEar ? Math.abs(leftEar.x - rightEar.x) / shoulderWidth : 0;
+    const raw = Math.hypot(dx, dy * 0.55) + eyeTilt * 0.5 + Math.max(0, 0.7 - earShift) * 0.15;
+    return {
+      raw,
+      note: 'MoveNet 沒有直接頸椎點；此處以鼻子、眼耳與雙肩位置估算頭頸動作',
+    };
   }
 
   if (profile.mode === 'pose-posture') {
     if (!nose) return null;
     const shoulderTilt = Math.abs(leftShoulder.y - rightShoulder.y) / shoulderWidth;
     const headCenter = Math.abs(nose.x - shoulderMid.x) / shoulderWidth;
-    const percent = clamp(100 - shoulderTilt * 180 - headCenter * 90, 0, 100);
-    return { percent, note: '已追蹤雙肩與頭部中線，提供坐姿輔助回饋' };
+    const raw = shoulderTilt * 0.65 + headCenter * 0.35;
+    return {
+      raw,
+      note: '已追蹤鼻子與雙肩；以頭部中線與肩膀水平估算坐姿穩定度',
+    };
   }
 
   return null;
+}
+
+function calibratedPercent(measure: PoseMeasure, calibration: PoseCalibration, profile: TrackingProfile) {
+  if (profile.mode === 'pose-posture') {
+    if (calibration.neutral === null) return null;
+    const deviation = Math.abs(measure.raw - calibration.neutral);
+    return clamp(100 - deviation * 260, 0, 100);
+  }
+
+  if (calibration.neutral === null || calibration.maximum === null) return null;
+  const range = calibration.maximum - calibration.neutral;
+  if (!Number.isFinite(range) || Math.abs(range) < 0.03) return null;
+  return clamp(((measure.raw - calibration.neutral) / range) * 100, 0, 120);
 }
 
 export default function PoseBodyTracker({ videoRef, isTracking, profile, onTrackingSummary }: PoseBodyTrackerProps) {
@@ -151,17 +190,63 @@ export default function PoseBodyTracker({ videoRef, isTracking, profile, onTrack
   const lastFrameAtRef = useRef(Date.now());
   const trainingRef = useRef({ percent: 0, holdMs: 0, reps: 0, readyForNextRep: true, maxPercent: 0, sumPercent: 0, samples: 0, totalHoldMs: 0 });
   const practiceCountdownStartedAtRef = useRef(0);
+  const calibrationSamplesRef = useRef<number[]>([]);
 
   const [loadProgress, setLoadProgress] = useState(0);
   const [loadStep, setLoadStep] = useState('尚未啟動');
   const [modelLoaded, setModelLoaded] = useState(false);
   const [personCount, setPersonCount] = useState(0);
+  const [rawMeasure, setRawMeasure] = useState<PoseMeasure | null>(null);
+  const [calibration, setCalibration] = useState<PoseCalibration>({ neutral: null, maximum: null });
+  const [calibrationStep, setCalibrationStep] = useState<CalibrationStep | null>(null);
+  const [calibrationRemainingMs, setCalibrationRemainingMs] = useState(0);
   const [percent, setPercent] = useState(0);
   const [holdMs, setHoldMs] = useState(0);
   const [reps, setReps] = useState(0);
   const [status, setStatus] = useState('尚未啟動');
   const [practiceState, setPracticeState] = useState<PracticeState>('idle');
   const [practiceCountdownMs, setPracticeCountdownMs] = useState(0);
+
+  const requiresMaximum = profile.mode !== 'pose-posture';
+  const calibrated = calibration.neutral !== null && (!requiresMaximum || calibration.maximum !== null);
+
+  function resetTraining() {
+    trainingRef.current = { percent: 0, holdMs: 0, reps: 0, readyForNextRep: true, maxPercent: 0, sumPercent: 0, samples: 0, totalHoldMs: 0 };
+    setPercent(0);
+    setHoldMs(0);
+    setReps(0);
+    setPracticeState('idle');
+  }
+
+  function startCalibration(step: CalibrationStep) {
+    calibrationSamplesRef.current = [];
+    setCalibrationStep(step);
+    setCalibrationRemainingMs(CALIBRATION_MS);
+    setPracticeState('idle');
+    resetTraining();
+  }
+
+  function finishCalibrationStep(step: CalibrationStep) {
+    const value = average(calibrationSamplesRef.current);
+    if (value === null) {
+      setStatus('校正失敗：請讓需要追蹤的身體部位完整入鏡後再試一次');
+      setCalibrationStep(null);
+      return;
+    }
+
+    setCalibration(current => {
+      const next = { ...current, [step]: value };
+      if (step === 'neutral' && requiresMaximum) {
+        window.setTimeout(() => startCalibration('maximum'), 400);
+      }
+      return next;
+    });
+
+    if (step === 'maximum' || !requiresMaximum) {
+      setStatus('姿勢校正完成，請按開始練習');
+      setCalibrationStep(null);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -207,7 +292,7 @@ export default function PoseBodyTracker({ videoRef, isTracking, profile, onTrack
         setLoadProgress(100);
         setLoadStep('姿勢模型準備完成');
         setModelLoaded(true);
-        setStatus('請讓頭、肩膀、手臂盡量入鏡');
+        setStatus('請先做姿勢校正：自然中立位，必要時再做最大可接受幅度');
       } catch (err) {
         setStatus(`姿勢模型載入失敗：${String(err)}`);
         setModelLoaded(false);
@@ -232,36 +317,46 @@ export default function PoseBodyTracker({ videoRef, isTracking, profile, onTrack
           setPersonCount(poses.length);
           if (poses[0] && ctx) {
             drawSkeleton(ctx, poses[0]);
-            const score = bodyScore(poses[0], profile);
-            if (score) {
+            const measure = poseRawMeasure(poses[0], profile);
+            setRawMeasure(measure);
+            if (measure) {
               const now = Date.now();
               const delta = Math.min(500, Math.max(0, now - lastFrameAtRef.current));
-              const current = { ...trainingRef.current, percent: score.percent };
-              if (practiceState === 'active') {
-                const capped = clamp(score.percent, 0, 100);
-                current.maxPercent = Math.max(current.maxPercent, capped);
-                current.sumPercent += capped;
-                current.samples += 1;
-                if (score.percent >= profile.targetPercent) current.totalHoldMs += delta;
+
+              if (calibrationStep) {
+                calibrationSamplesRef.current.push(measure.raw);
+                setStatus(calibrationStep === 'neutral' ? '校正中：請保持自然中立姿勢' : '校正中：請做到最大可接受幅度');
               }
-              if (practiceState === 'active' && score.percent >= profile.targetPercent && current.readyForNextRep) {
-                current.holdMs = Math.min(HOLD_MS, current.holdMs + delta);
-                if (current.holdMs >= HOLD_MS) {
-                  current.reps = Math.min(TARGET_REPS, current.reps + 1);
-                  current.readyForNextRep = false;
+
+              const calibrated = calibratedPercent(measure, calibration, profile);
+              if (calibrated !== null) {
+                const current = { ...trainingRef.current, percent: calibrated };
+                if (practiceState === 'active') {
+                  const capped = clamp(calibrated, 0, 100);
+                  current.maxPercent = Math.max(current.maxPercent, capped);
+                  current.sumPercent += capped;
+                  current.samples += 1;
+                  if (calibrated >= profile.targetPercent) current.totalHoldMs += delta;
+                }
+                if (practiceState === 'active' && calibrated >= profile.targetPercent && current.readyForNextRep) {
+                  current.holdMs = Math.min(HOLD_MS, current.holdMs + delta);
+                  if (current.holdMs >= HOLD_MS) {
+                    current.reps = Math.min(TARGET_REPS, current.reps + 1);
+                    current.readyForNextRep = false;
+                    current.holdMs = 0;
+                  }
+                } else if (practiceState === 'active' && calibrated < 50) {
+                  current.readyForNextRep = true;
+                  current.holdMs = 0;
+                } else if (practiceState === 'active' && calibrated < profile.targetPercent) {
                   current.holdMs = 0;
                 }
-              } else if (practiceState === 'active' && score.percent < 50) {
-                current.readyForNextRep = true;
-                current.holdMs = 0;
-              } else if (practiceState === 'active' && score.percent < profile.targetPercent) {
-                current.holdMs = 0;
+                trainingRef.current = current;
+                setPercent(Math.round(calibrated));
+                setHoldMs(current.holdMs);
+                setReps(current.reps);
               }
-              trainingRef.current = current;
-              setPercent(Math.round(score.percent));
-              setHoldMs(current.holdMs);
-              setReps(current.reps);
-              setStatus(score.note);
+              setStatus(measure.note);
               lastFrameAtRef.current = now;
             } else {
               setStatus('請讓需要追蹤的身體部位完整入鏡');
@@ -287,7 +382,21 @@ export default function PoseBodyTracker({ videoRef, isTracking, profile, onTrack
       detectorRef.current?.dispose();
       detectorRef.current = null;
     };
-  }, [isTracking, videoRef, profile]);
+  }, [isTracking, videoRef, profile, calibration, calibrationStep, practiceState]);
+
+  useEffect(() => {
+    if (!calibrationStep) return;
+    const startedAt = Date.now();
+    const timer = window.setInterval(() => {
+      const remaining = Math.max(0, CALIBRATION_MS - (Date.now() - startedAt));
+      setCalibrationRemainingMs(remaining);
+      if (remaining <= 0) {
+        window.clearInterval(timer);
+        finishCalibrationStep(calibrationStep);
+      }
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [calibrationStep]);
 
   useEffect(() => {
     const current = trainingRef.current;
@@ -320,7 +429,9 @@ export default function PoseBodyTracker({ videoRef, isTracking, profile, onTrack
     }, 100);
     return () => window.clearInterval(timer);
   }, [practiceState]);
+
   const holdPercent = clamp((holdMs / HOLD_MS) * 100, 0, 100);
+  const canStartPractice = modelLoaded && calibrated && rawMeasure !== null;
 
   return (
     <>
@@ -334,6 +445,21 @@ export default function PoseBodyTracker({ videoRef, isTracking, profile, onTrack
             <span className="w-fit rounded bg-slate-900/65 px-2 py-1 text-white shadow">人：{personCount}</span>
           </div>
         </div>
+        {calibrationStep && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="rounded-3xl bg-purple-950/65 px-10 py-7 text-center text-white shadow-2xl backdrop-blur-sm">
+              <div className="text-sm font-semibold tracking-wide text-purple-200">
+                {calibrationStep === 'neutral' ? '姿勢校正：自然中立位' : '姿勢校正：最大可接受幅度'}
+              </div>
+              <div className="mt-3 text-8xl font-black leading-none tabular-nums drop-shadow-lg">
+                {Math.max(1, Math.ceil(calibrationRemainingMs / 1000))}
+              </div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/20">
+                <div className="h-full rounded-full bg-purple-300" style={{ width: `${clamp((1 - calibrationRemainingMs / CALIBRATION_MS) * 100)}%` }} />
+              </div>
+            </div>
+          </div>
+        )}
         {practiceState === 'countdown' && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="rounded-3xl bg-green-950/65 px-10 py-7 text-center text-white shadow-2xl backdrop-blur-sm">
@@ -365,44 +491,48 @@ export default function PoseBodyTracker({ videoRef, isTracking, profile, onTrack
             <div className="mb-2 flex items-start justify-between gap-2">
               <div>
                 <div className="text-base font-bold text-gray-900">{profile.title}</div>
-                <div className="text-xs text-gray-500">按下開始練習後，到位程度達目標以上並維持 {(HOLD_MS / 1000).toFixed(0)} 秒，算 1 次有效練習。</div>
+                <div className="text-xs text-gray-500">
+                  MoveNet 主要追蹤鼻、眼、耳、肩、肘、腕、髖等骨架點；頭頸分數是用頭部相對肩膀位置估算，並非直接量到頸椎。
+                </div>
               </div>
               <div className="flex gap-1">
                 <button
                   type="button"
                   onClick={() => {
-                    trainingRef.current = { percent: 0, holdMs: 0, reps: 0, readyForNextRep: true, maxPercent: 0, sumPercent: 0, samples: 0, totalHoldMs: 0 };
-                    setPercent(0);
-                    setHoldMs(0);
-                    setReps(0);
-                    practiceCountdownStartedAtRef.current = Date.now();
-                    setPracticeCountdownMs(3000);
-                    setPracticeState('countdown');
+                    setCalibration({ neutral: null, maximum: null });
+                    startCalibration('neutral');
                   }}
-                  className="rounded bg-green-600 px-2 py-1 text-xs font-semibold text-white"
+                  disabled={!rawMeasure || !!calibrationStep}
+                  className="rounded bg-purple-600 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
                 >
-                  開始練習
+                  重新校正
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    trainingRef.current = { percent: 0, holdMs: 0, reps: 0, readyForNextRep: true, maxPercent: 0, sumPercent: 0, samples: 0, totalHoldMs: 0 };
-                    setPercent(0);
-                    setHoldMs(0);
-                    setReps(0);
-                    setPracticeState('idle');
+                    resetTraining();
+                    practiceCountdownStartedAtRef.current = Date.now();
+                    setPracticeCountdownMs(3000);
+                    setPracticeState('countdown');
                   }}
-                  className="rounded bg-gray-200 px-2 py-1 text-xs text-gray-700"
+                  disabled={!canStartPractice || !!calibrationStep}
+                  className="rounded bg-green-600 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
                 >
-                  重置
+                  開始練習
                 </button>
+                <button type="button" onClick={resetTraining} className="rounded bg-gray-200 px-2 py-1 text-xs text-gray-700">重置</button>
               </div>
             </div>
+            {!calibrated && (
+              <div className="mb-3 rounded-lg border border-purple-200 bg-purple-50 p-2 text-xs leading-relaxed text-purple-800">
+                請先做姿勢校正：第一步記錄自然中立位；{requiresMaximum ? '第二步記錄最大可接受幅度，作為 100%。' : '此坐姿項目會把校正時的坐直姿勢作為 100%。'}
+              </div>
+            )}
             <div className="rounded-xl bg-slate-50 p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <div>
                   <div className="text-sm font-semibold text-gray-700">動作到位程度</div>
-                  <div className="text-[11px] text-gray-500">{practiceState === 'idle' ? '請先按開始練習' : '條狀指示越滿代表越接近 100%'}</div>
+                  <div className="text-[11px] text-gray-500">{!calibrated ? '請先完成校正' : practiceState === 'idle' ? '請先按開始練習' : '條狀指示越滿代表越接近 100%'}</div>
                 </div>
                 <span className={`rounded-full px-2 py-1 text-xs font-bold ${displayPercent >= profile.targetPercent ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
                   {displayPercent >= profile.targetPercent ? '已達標' : '繼續加油'}
@@ -412,7 +542,7 @@ export default function PoseBodyTracker({ videoRef, isTracking, profile, onTrack
                 <div className={`h-full rounded-full transition-all duration-200 ${displayPercent >= profile.targetPercent ? 'bg-green-500' : 'bg-amber-500'}`} style={{ width: `${displayPercent}%` }} />
                 <div className="absolute top-0 h-full w-1 bg-green-800/70" style={{ left: `${profile.targetPercent}%` }} />
                 <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-slate-800">
-                  {practiceState === 'idle' ? '請按開始練習' : `${profile.targetLabel}：${displayPercent}%`}
+                  {!calibrated ? '請先完成校正' : practiceState === 'idle' ? '請按開始練習' : `${profile.targetLabel}：${displayPercent}%`}
                 </div>
               </div>
               <div className="mt-1 flex justify-between text-[11px] text-gray-500">
