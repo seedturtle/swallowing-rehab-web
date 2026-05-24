@@ -123,11 +123,6 @@ function App() {
           </a>{' '}
           提供計數服務
         </p>
-        <img
-          src="https://counter12.com/stats/181364/visits"
-          alt="counter"
-          style={{ height: '40px', imageRendering: 'pixelated' }}
-        />
         <p style={{ margin: '8px 0 0' }}>© 2024 洪士涵醫師復健系統</p>
       </footer>
     </div>
