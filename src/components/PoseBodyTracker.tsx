@@ -82,7 +82,7 @@ function bodyScore(pose: posedetection.Pose, profile: TrackingProfile): { percen
   const shoulderWidth = Math.max(20, distance(leftShoulder, rightShoulder));
   const shoulderMid = midpoint(leftShoulder, rightShoulder);
 
-  if (profile.mode === 'arm-raise-abduction' || profile.mode === 'shoulder-shrug' || profile.mode === 'scapular-retraction') {
+  if (profile.mode === 'pose-arm') {
     const candidates: number[] = [];
     for (const pair of [[leftShoulder, leftWrist], [rightShoulder, rightWrist]] as const) {
       const [shoulder, wrist] = pair;
@@ -96,7 +96,7 @@ function bodyScore(pose: posedetection.Pose, profile: TrackingProfile): { percen
     return { percent, note: leftElbow || rightElbow ? '已追蹤肩膀、手肘、手腕' : '請讓手肘與手腕入鏡' };
   }
 
-  if (profile.mode === 'neck-flexion-extension' || profile.mode === 'neck-rotation' || profile.mode === 'neck-side-bend') {
+  if (profile.mode === 'pose-neck') {
     if (!nose) return null;
     const dx = Math.abs(nose.x - shoulderMid.x) / shoulderWidth;
     const dy = (shoulderMid.y - nose.y) / shoulderWidth;
@@ -106,7 +106,7 @@ function bodyScore(pose: posedetection.Pose, profile: TrackingProfile): { percen
     return { percent, note: '已追蹤鼻子與雙肩，提供頭頸姿勢輔助回饋' };
   }
 
-  if (profile.mode === 'posture-upright') {
+  if (profile.mode === 'pose-posture') {
     if (!nose) return null;
     const shoulderTilt = Math.abs(leftShoulder.y - rightShoulder.y) / shoulderWidth;
     const headCenter = Math.abs(nose.x - shoulderMid.x) / shoulderWidth;
