@@ -23,6 +23,11 @@ function App() {
       .catch(() => setVisitCount(null));
   }, []);
 
+  // Counter12 計數器（替代原本的 API call）
+  useEffect(() => {
+    // counter12 計數器直接在 JSX 中用 img 標籤呈現
+  }, []);
+
   const [progress, setProgress] = useState<PatientProgress[]>(() => {
     try {
       const saved = localStorage.getItem('swallow-rehab-progress');
@@ -118,6 +123,12 @@ function App() {
           onComplete={completeExercise}
         />
       )}
+
+      {/* 頁尾：造訪計數器 */}
+      <div style={{ textAlign: 'center', padding: '12px', fontSize: '12px', color: '#999' }}>
+        <div style={{ marginBottom: '6px', color: '#aaa' }}>造訪人數</div>
+        <div><img src="https://seedturtle.zo.space/counter.gif" alt="counter" /></div>
+      </div>
     </div>
   );
 }
