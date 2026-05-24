@@ -124,11 +124,22 @@ function App() {
         />
       )}
 
-      {/* 頁尾：造訪計數器 */}
-      <div style={{ textAlign: 'center', padding: '12px', fontSize: '12px', color: '#999' }}>
-        <div style={{ marginBottom: '6px', color: '#aaa' }}>造訪人數</div>
-        <div><img src="https://seedturtle.zo.space/counter.gif" alt="counter" /></div>
-      </div>
+      {/* Footer */}
+      <footer style={{ padding: '16px', textAlign: 'center', background: '#1e293b', color: '#94a3b8', fontSize: '12px' }}>
+        <p style={{ margin: '0 0 8px' }}>
+          由{' '}
+          <a href="https://counter12.com" target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6' }}>
+            counter12.com
+          </a>{' '}
+          提供計數服務
+        </p>
+        <img
+          src="https://counter12.com/stats/181364/visits"
+          alt="counter"
+          style={{ height: '40px', imageRendering: 'pixelated' }}
+        />
+        <p style={{ margin: '8px 0 0' }}>© 2024 洪士涵醫師復健系統</p>
+      </footer>
     </div>
   );
 }
