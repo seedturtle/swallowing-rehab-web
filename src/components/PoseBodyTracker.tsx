@@ -325,29 +325,39 @@ export default function PoseBodyTracker({ videoRef, isTracking, profile }: PoseB
                 重置
               </button>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-center text-xs">
-              <div className="rounded-lg bg-amber-50 p-2">
-                <div className="text-gray-500">{profile.targetLabel}</div>
-                <div className={`text-2xl font-bold ${displayPercent >= profile.targetPercent ? 'text-green-600' : 'text-amber-600'}`}>{displayPercent}%</div>
+            <div className="rounded-xl bg-slate-50 p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-sm font-semibold text-gray-700">動作到位程度</div>
+                  <div className="text-[11px] text-gray-500">條狀指示越滿代表越接近 100%</div>
+                </div>
+                <span className={`rounded-full px-2 py-1 text-xs font-bold ${displayPercent >= profile.targetPercent ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                  {displayPercent >= profile.targetPercent ? '已達標' : '繼續加油'}
+                </span>
               </div>
+              <div className="relative h-10 overflow-hidden rounded-full bg-gray-200 shadow-inner">
+                <div className={`h-full rounded-full transition-all duration-200 ${displayPercent >= profile.targetPercent ? 'bg-green-500' : 'bg-amber-500'}`} style={{ width: `${displayPercent}%` }} />
+                <div className="absolute top-0 h-full w-1 bg-green-800/70" style={{ left: `${profile.targetPercent}%` }} />
+                <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-slate-800">
+                  {profile.targetLabel}：{displayPercent}%
+                </div>
+              </div>
+              <div className="mt-1 flex justify-between text-[11px] text-gray-500">
+                <span>0%</span>
+                <span>目標 {profile.targetPercent}%</span>
+                <span>100%</span>
+              </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2 text-center text-xs">
               <div className="rounded-lg bg-sky-50 p-2">
                 <div className="text-gray-500">維持時間</div>
-                <div className="text-2xl font-bold text-sky-600">{(holdMs / 1000).toFixed(1)}秒</div>
+                <div className="text-xl font-bold text-sky-600">{(holdMs / 1000).toFixed(1)}秒</div>
               </div>
               <div className="rounded-lg bg-purple-50 p-2">
                 <div className="text-gray-500">有效次數</div>
-                <div className="text-2xl font-bold text-purple-600">{reps}/{TARGET_REPS}</div>
+                <div className="text-xl font-bold text-purple-600">{reps}/{TARGET_REPS}</div>
               </div>
-            </div>
-            <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
-              <span>動作到位 0%</span>
-              <span className="font-semibold text-green-600">目標 {profile.targetPercent}%</span>
-              <span>100%</span>
-            </div>
-            <div className="relative mt-1 h-6 overflow-hidden rounded-full bg-gray-200 shadow-inner">
-              <div className={`h-full rounded-full transition-all ${displayPercent >= profile.targetPercent ? 'bg-green-500' : 'bg-amber-500'}`} style={{ width: `${displayPercent}%` }} />
-              <div className="absolute top-0 h-full w-1 bg-green-800/70" style={{ left: `${profile.targetPercent}%` }} />
-              <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-800">{displayPercent}%</div>
             </div>
             <div className="mt-2 text-xs text-gray-500">維持進度</div>
             <div className="mt-1 h-2 overflow-hidden rounded-full bg-gray-200">

@@ -686,41 +686,35 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 text-center text-xs">
-              <div className="rounded-lg bg-amber-50 p-2">
-                <div className="text-gray-500">{profile.targetLabel}</div>
-                <div className={`text-2xl font-bold ${displayScorePercent >= profile.targetPercent ? 'text-green-600' : 'text-amber-600'}`}>
+            <div className="rounded-xl bg-slate-50 p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-sm font-semibold text-gray-700"></div>
+                </div>
+                <div className="text-xs text-gray-500">
+                  {profile.targetLabel} 0%
+                </div>
+                <div className="text-xs text-gray-500">
+                  目標 {profile.targetPercent}%
+                </div>
+                <div className="text-xs text-gray-500">
+                  100%
+                </div>
+              </div>
+              <div className="relative mt-1 h-6 overflow-hidden rounded-full bg-gray-200 shadow-inner">
+                <div
+                  className={`h-full rounded-full transition-all ${displayScorePercent >= profile.targetPercent ? 'bg-green-500' : 'bg-amber-500'}`}
+                  style={{ width: `${displayScorePercent}%` }}
+                />
+                <div className="absolute top-0 h-full w-1 bg-green-800/70" style={{ left: `${profile.targetPercent}%` }} />
+                <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-800">
                   {displayScorePercent}%
                 </div>
               </div>
-              <div className="rounded-lg bg-sky-50 p-2">
-                <div className="text-gray-500">維持時間</div>
-                <div className="text-2xl font-bold text-sky-600">{(training.holdMs / 1000).toFixed(1)}秒</div>
+              <div className="mt-2 text-xs text-gray-500">維持進度</div>
+              <div className="mt-1 h-2 overflow-hidden rounded-full bg-gray-200">
+                <div className="h-full rounded-full bg-green-500 transition-all" style={{ width: `${holdPercent}%` }} />
               </div>
-              <div className="rounded-lg bg-purple-50 p-2">
-                <div className="text-gray-500">有效次數</div>
-                <div className="text-2xl font-bold text-purple-600">{training.reps}/{TARGET_REPS}</div>
-              </div>
-            </div>
-
-            <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
-              <span>{profile.targetLabel} 0%</span>
-              <span className="font-semibold text-green-600">目標 {profile.targetPercent}%</span>
-              <span>100%</span>
-            </div>
-            <div className="relative mt-1 h-6 overflow-hidden rounded-full bg-gray-200 shadow-inner">
-              <div
-                className={`h-full rounded-full transition-all ${displayScorePercent >= profile.targetPercent ? 'bg-green-500' : 'bg-amber-500'}`}
-                style={{ width: `${displayScorePercent}%` }}
-              />
-              <div className="absolute top-0 h-full w-1 bg-green-800/70" style={{ left: `${profile.targetPercent}%` }} />
-              <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-800">
-                {displayScorePercent}%
-              </div>
-            </div>
-            <div className="mt-2 text-xs text-gray-500">維持進度</div>
-            <div className="mt-1 h-2 overflow-hidden rounded-full bg-gray-200">
-              <div className="h-full rounded-full bg-green-500 transition-all" style={{ width: `${holdPercent}%` }} />
             </div>
           </div>
         )}
