@@ -17,31 +17,10 @@ function App() {
 
   // ✅ 只在第一次（全新瀏覽器）才遞增計數
   useEffect(() => {
-    const VISITOR_KEY = 'swallow-rehab-visitor-id';
-    const VISITED_KEY = 'swallow-rehab-visited';
-
-    let visitorId = localStorage.getItem(VISITOR_KEY);
-    if (!visitorId) {
-      visitorId = Date.now().toString(36) + Math.random().toString(36).slice(2);
-      localStorage.setItem(VISITOR_KEY, visitorId);
-    }
-
-    const alreadyVisited = localStorage.getItem(VISITED_KEY) === '1';
-
-    if (alreadyVisited) {
-      fetch('https://seedturtle.zo.space/api/counter')
-        .then(r => r.json())
-        .then(d => setVisitCount(d.count))
-        .catch(() => setVisitCount(null));
-    } else {
-      fetch('https://seedturtle.zo.space/api/counter', { method: 'POST' })
-        .then(r => r.json())
-        .then(d => {
-          setVisitCount(d.count);
-          localStorage.setItem(VISITED_KEY, '1');
-        })
-        .catch(() => setVisitCount(null));
-    }
+    fetch('https://seedturtle.zo.space/api/counter', { method: 'POST' })
+      .then(r => r.json())
+      .then(d => setVisitCount(d.count))
+      .catch(() => setVisitCount(null));
   }, []);
 
   const [progress, setProgress] = useState<PatientProgress[]>(() => {
