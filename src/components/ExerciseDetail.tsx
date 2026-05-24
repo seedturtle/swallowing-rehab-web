@@ -217,13 +217,14 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
         {camError && <div className="mt-2 text-red-600 text-sm">{camError}</div>}
         
         {showCamera && (
-          <div className="mt-3 relative rounded-lg overflow-hidden bg-black" style={{ minHeight: '300px' }}>
+          <div className="mt-3 relative aspect-video rounded-lg overflow-hidden bg-black">
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
-              className="absolute inset-0 w-full h-full object-contain opacity-0 pointer-events-none"
+              className="absolute inset-0 w-full h-full object-contain"
+              style={{ transform: 'scaleX(-1)' }}
             />
             <PoseTracker videoRef={videoRef} isTracking={showCamera} />
           </div>

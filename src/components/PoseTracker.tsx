@@ -223,7 +223,7 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
   }, [isTracking, videoRef, onLandmarksDetected]);
 
   return (
-    <div className="relative w-full rounded-lg overflow-hidden bg-black">
+    <div className="absolute inset-0 w-full h-full">
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full object-contain pointer-events-none"
