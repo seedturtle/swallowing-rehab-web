@@ -14,6 +14,20 @@ export interface Exercise {
 }
 
 
+
+export interface TrackingSummary {
+  module?: 'face' | 'pose' | 'self-view';
+  mode?: string;
+  targetLabel?: string;
+  reps?: number;
+  maxPercent?: number;
+  avgPercent?: number;
+  targetHoldSeconds?: number;
+  totalHoldSeconds?: number;
+  completedTarget?: boolean;
+  samples?: number;
+}
+
 export interface PatientProgress {
   exerciseId: string;
   date: string;
