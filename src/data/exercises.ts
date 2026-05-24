@@ -350,6 +350,7 @@ export const exercises: Exercise[] = [
   // 張口訓練
   {
     id: 'trismus-1',
+    videoUrl: '/videos/下巴開合運動.mp4',
     name: '主動張口訓練',
     category: 'trismus',
     difficulty: 'basic',
