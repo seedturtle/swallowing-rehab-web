@@ -10,12 +10,13 @@ interface PoseTrackerProps {
 const MODEL_URL = '/models';
 
 const COLORS = {
-  face: '#22C55E',
+  box: '#22C55E',
+  face: '#FFFFFF',
   brow: '#FACC15',
   eye: '#34D399',
   nose: '#60A5FA',
   mouth: '#F472B6',
-  dot: '#FFFFFF',
+  dot: '#EF4444',
 };
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -34,23 +35,42 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
+function asPoints(landmarks: any): Array<{ x: number; y: number }> {
+  if (Array.isArray(landmarks?.positions)) return landmarks.positions;
+  if (Array.isArray(landmarks?._positions)) return landmarks._positions;
+  if (typeof landmarks?.arraySync === 'function') return landmarks.arraySync();
+  return [];
+}
+
+function slice(points: Array<{ x: number; y: number }>, start: number, end: number) {
+  return points.slice(start, end).filter(pt => Number.isFinite(pt.x) && Number.isFinite(pt.y));
+}
+
 function drawPath(ctx: CanvasRenderingContext2D, pts: Array<{ x: number; y: number }>, color: string, close = false) {
   if (!pts.length) return;
   ctx.beginPath();
   ctx.strokeStyle = color;
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 4;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.shadowColor = 'rgba(0,0,0,0.75)';
+  ctx.shadowBlur = 3;
   ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i += 1) ctx.lineTo(pts[i].x, pts[i].y);
   if (close) ctx.closePath();
   ctx.stroke();
+  ctx.shadowBlur = 0;
 }
 
 function drawDots(ctx: CanvasRenderingContext2D, pts: Array<{ x: number; y: number }>) {
-  ctx.fillStyle = COLORS.dot;
   for (const pt of pts) {
     ctx.beginPath();
-    ctx.arc(pt.x, pt.y, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = COLORS.dot;
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 1.5;
+    ctx.arc(pt.x, pt.y, 3.2, 0, Math.PI * 2);
     ctx.fill();
+    ctx.stroke();
   }
 }
 
@@ -76,30 +96,85 @@ function drawGuide(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
   ctx.fillText('請將臉部置於橢圓內，正面看鏡頭', centerX, canvas.height - 16);
 }
 
-function drawLandmarks(canvas: HTMLCanvasElement, results: any[]) {
+function drawBox(ctx: CanvasRenderingContext2D, detection: any) {
+  const box = detection?.box || detection?._box;
+  if (!box) return;
+  const x = box.x ?? box._x ?? 0;
+  const y = box.y ?? box._y ?? 0;
+  const width = box.width ?? box._width ?? 0;
+  const height = box.height ?? box._height ?? 0;
+  ctx.strokeStyle = COLORS.box;
+  ctx.lineWidth = 4;
+  ctx.shadowColor = 'rgba(0,0,0,0.8)';
+  ctx.shadowBlur = 4;
+  ctx.strokeRect(x, y, width, height);
+  ctx.shadowBlur = 0;
+}
+
+function drawLandmarks(canvas: HTMLCanvasElement, video: HTMLVideoElement, results: any[]) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
+
+  const width = video.videoWidth || 640;
+  const height = video.videoHeight || 480;
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawGuide(ctx, canvas);
+
+  if (!results.length) {
+    drawGuide(ctx, canvas);
+    return;
+  }
 
   for (const result of results) {
-    const landmarks = result.landmarks;
-    const jaw = landmarks.getJawOutline();
-    const leftBrow = landmarks.getLeftEyeBrow();
-    const rightBrow = landmarks.getRightEyeBrow();
-    const leftEye = landmarks.getLeftEye();
-    const rightEye = landmarks.getRightEye();
-    const nose = landmarks.getNose();
-    const mouth = landmarks.getMouth();
+    drawBox(ctx, result.detection);
+    const points = asPoints(result.landmarks);
 
-    drawPath(ctx, jaw, COLORS.face);
-    drawPath(ctx, leftBrow, COLORS.brow);
-    drawPath(ctx, rightBrow, COLORS.brow);
-    drawPath(ctx, leftEye, COLORS.eye, true);
-    drawPath(ctx, rightEye, COLORS.eye, true);
-    drawPath(ctx, nose, COLORS.nose);
-    drawPath(ctx, mouth, COLORS.mouth, true);
-    drawDots(ctx, [...jaw, ...leftBrow, ...rightBrow, ...leftEye, ...rightEye, ...nose, ...mouth]);
+    if (points.length >= 68) {
+      const jaw = slice(points, 0, 17);
+      const rightBrow = slice(points, 17, 22);
+      const leftBrow = slice(points, 22, 27);
+      const noseBridge = slice(points, 27, 31);
+      const noseBase = slice(points, 31, 36);
+      const rightEye = slice(points, 36, 42);
+      const leftEye = slice(points, 42, 48);
+      const outerMouth = slice(points, 48, 60);
+      const innerMouth = slice(points, 60, 68);
+
+      drawPath(ctx, jaw, COLORS.face);
+      drawPath(ctx, rightBrow, COLORS.brow);
+      drawPath(ctx, leftBrow, COLORS.brow);
+      drawPath(ctx, noseBridge, COLORS.nose);
+      drawPath(ctx, noseBase, COLORS.nose);
+      drawPath(ctx, rightEye, COLORS.eye, true);
+      drawPath(ctx, leftEye, COLORS.eye, true);
+      drawPath(ctx, outerMouth, COLORS.mouth, true);
+      drawPath(ctx, innerMouth, COLORS.mouth, true);
+      drawDots(ctx, [...jaw, ...rightBrow, ...leftBrow, ...noseBridge, ...noseBase, ...rightEye, ...leftEye, ...outerMouth, ...innerMouth]);
+      continue;
+    }
+
+    const landmarks = result.landmarks;
+    if (landmarks?.getJawOutline) {
+      const jaw = landmarks.getJawOutline();
+      const leftBrow = landmarks.getLeftEyeBrow();
+      const rightBrow = landmarks.getRightEyeBrow();
+      const leftEye = landmarks.getLeftEye();
+      const rightEye = landmarks.getRightEye();
+      const nose = landmarks.getNose();
+      const mouth = landmarks.getMouth();
+      drawPath(ctx, jaw, COLORS.face);
+      drawPath(ctx, leftBrow, COLORS.brow);
+      drawPath(ctx, rightBrow, COLORS.brow);
+      drawPath(ctx, leftEye, COLORS.eye, true);
+      drawPath(ctx, rightEye, COLORS.eye, true);
+      drawPath(ctx, nose, COLORS.nose);
+      drawPath(ctx, mouth, COLORS.mouth, true);
+      drawDots(ctx, [...jaw, ...leftBrow, ...rightBrow, ...leftEye, ...rightEye, ...nose, ...mouth]);
+    }
   }
 }
 
@@ -155,8 +230,8 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
       setLoadProgress(25);
       setLoadStep('相機已啟動');
       if (!canvas.width || !canvas.height) {
-        canvas.width = 640;
-        canvas.height = 480;
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
       }
 
       const ctx = canvas.getContext('2d');
@@ -196,24 +271,20 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
         if (!activeRef.current || !currentVideo || !currentCanvas) return;
 
         if (currentVideo.readyState >= 2) {
-          if (currentVideo.videoWidth && currentVideo.videoHeight) {
-            currentCanvas.width = currentVideo.videoWidth;
-            currentCanvas.height = currentVideo.videoHeight;
-          }
-
           try {
             const results = await faceapi
-              .detectAllFaces(currentVideo, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.35 }))
+              .detectAllFaces(currentVideo, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.3 }))
               .withFaceLandmarks(true);
 
-            drawLandmarks(currentCanvas, results as any[]);
+            drawLandmarks(currentCanvas, currentVideo, results as any[]);
             setFaceCount(results.length);
             onLandmarksDetected?.(results);
 
             if (results.length > 0) {
               setDetectCount(count => count + 1);
               lastDetectedAtRef.current = Date.now();
-              setStatus(`已偵測到臉部：${results.length}`);
+              const pointCount = asPoints((results[0] as any).landmarks).length;
+              setStatus(`已偵測到臉部：${results.length}｜五官點：${pointCount}`);
             } else if (Date.now() - lastDetectedAtRef.current > 3000) {
               setStatus('尚未偵測到臉，請正面看鏡頭並保持光線充足');
             }
