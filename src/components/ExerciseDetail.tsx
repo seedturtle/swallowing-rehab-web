@@ -223,7 +223,7 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
               autoPlay
               playsInline
               muted
-              className="absolute inset-0 w-full h-full object-contain"
+              className="absolute inset-0 w-full h-full rounded-lg object-contain"
               style={{ transform: 'scaleX(-1)' }}
             />
             <PoseTracker videoRef={videoRef} isTracking={showCamera} />
