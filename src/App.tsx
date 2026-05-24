@@ -17,6 +17,13 @@ function App() {
   const [visitCount, setVisitCount] = useState<number | null>(null);
 
   useEffect(() => {
+    const VISITOR_KEY = 'swallow-rehab-visitor-id';
+    let visitorId = localStorage.getItem(VISITOR_KEY);
+    if (!visitorId) {
+      visitorId = Date.now().toString(36) + Math.random().toString(36).slice(2);
+      localStorage.setItem(VISITOR_KEY, visitorId);
+    }
+
     fetch('https://seedturtle.zo.space/api/counter', { method: 'POST' })
       .then(r => r.json())
       .then(d => setVisitCount(d.count))
