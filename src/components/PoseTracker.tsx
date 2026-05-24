@@ -530,8 +530,8 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
   const currentStep = calibrationUi.active ? profile.calibrationSteps[calibrationUi.stepIndex] : null;
   const isCalibrated = profile.quantifiable && calibrationComplete(calibration);
   const holdPercent = clamp((training.holdMs / HOLD_MS) * 100, 0, 100);
-  const openPercent = Math.round(training.openPercent);
-  const displayOpenPercent = clamp(openPercent, 0, 100);
+  const scorePercent = Math.round(training.openPercent);
+  const displayScorePercent = clamp(scorePercent, 0, 100);
 
   return (
     <>
@@ -572,12 +572,11 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
           </div>
         )}
 
-        {modelLoaded && !calibrationUi.active && !isCalibrated && (
+        {modelLoaded && !calibrationUi.active && !isCalibrated && profile.quantifiable && (
           <div>
-            <div className="text-base font-bold text-purple-800">臉部動作校正</div>
-            <p className="mt-1 text-sm leading-relaxed text-gray-600">
-              校正會記錄你的自然閉口、最大張口、最大微笑和噘嘴。之後系統會用你的臉部比例計算，不會只看像素距離。
-            </p>
+            <div className="text-base font-bold text-purple-800">{profile.title}校正</div>
+            <p className="mt-1 text-sm leading-relaxed text-gray-600">{profile.patientNotice}</p>
+            <p className="mt-1 text-xs leading-relaxed text-gray-500">{profile.metricNote}</p>
             <button
               type="button"
               onClick={startCalibration}
@@ -589,12 +588,11 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
           </div>
         )}
 
-        {modelLoaded && profile.quantifiable && !calibrationUi.active && !isCalibrated && (
+        {modelLoaded && !profile.quantifiable && !calibrationUi.active && (
           <div>
-            <div className="flex max-w-[55%] flex-col items-end gap-1 rounded-lg bg-amber-600/90 px-2 py-1 text-right text-[11px] text-white shadow">
-              <div className="font-bold">鏡頭自我觀察</div>
-              <div className="leading-snug">本項目不顯示量化分數</div>
-            </div>
+            <div className="text-base font-bold text-amber-800">鏡頭自我觀察</div>
+            <p className="mt-1 text-sm leading-relaxed text-gray-600">{profile.patientNotice}</p>
+            <p className="mt-1 text-xs leading-relaxed text-gray-500">{profile.metricNote}</p>
           </div>
         )}
 
@@ -602,11 +600,11 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
           <div>
             <div className="mb-2 flex items-start justify-between gap-2">
               <div>
-                <div className="text-base font-bold text-gray-900">張口練習量化</div>
-                <div className="text-xs text-gray-500">張到目標以上並維持 {(HOLD_MS / 1000).toFixed(0)} 秒，算 1 次有效練習。</div>
+                <div className="text-base font-bold text-gray-900">{profile.title}</div>
+                <div className="text-xs text-gray-500">達到目標以上並維持 {(HOLD_MS / 1000).toFixed(0)} 秒，算 1 次有效練習。</div>
               </div>
               <div className="flex gap-1">
-                <button type="button" onClick={startCalibration} className="rounded bg-gray-200 px-2 py-1 text-xs text-gray-700">
+                <button type="button" onClick={startCalibration} className="rounded bg-purple-100 px-2 py-1 text-xs font-semibold text-purple-700">
                   重新校正
                 </button>
                 <button type="button" onClick={resetTraining} className="rounded bg-gray-200 px-2 py-1 text-xs text-gray-700">
@@ -617,9 +615,9 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
 
             <div className="grid grid-cols-3 gap-2 text-center text-xs">
               <div className="rounded-lg bg-amber-50 p-2">
-                <div className="text-gray-500">目前張口</div>
-                <div className={`text-2xl font-bold ${displayOpenPercent >= profile.targetPercent ? 'text-green-600' : 'text-amber-600'}`}>
-                  {displayOpenPercent}%
+                <div className="text-gray-500">{profile.targetLabel}</div>
+                <div className={`text-2xl font-bold ${displayScorePercent >= profile.targetPercent ? 'text-green-600' : 'text-amber-600'}`}>
+                  {displayScorePercent}%
                 </div>
               </div>
               <div className="rounded-lg bg-sky-50 p-2">
@@ -632,10 +630,20 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
               </div>
             </div>
 
-            <div className="mt-3 text-xs text-gray-500">目標：至少 {profile.targetPercent}%</div>
-            <div className="relative mt-1 h-3 overflow-hidden rounded-full bg-gray-200">
-              <div className="h-full rounded-full bg-amber-500 transition-all" style={{ width: `${displayOpenPercent}%` }} />
-              <div className="absolute top-0 h-full w-0.5 bg-green-300" style={{ left: `${profile.targetPercent}%` }} />
+            <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
+              <span>{profile.targetLabel} 0%</span>
+              <span className="font-semibold text-green-600">目標 {profile.targetPercent}%</span>
+              <span>100%</span>
+            </div>
+            <div className="relative mt-1 h-6 overflow-hidden rounded-full bg-gray-200 shadow-inner">
+              <div
+                className={`h-full rounded-full transition-all ${displayScorePercent >= profile.targetPercent ? 'bg-green-500' : 'bg-amber-500'}`}
+                style={{ width: `${displayScorePercent}%` }}
+              />
+              <div className="absolute top-0 h-full w-1 bg-green-800/70" style={{ left: `${profile.targetPercent}%` }} />
+              <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-800">
+                {displayScorePercent}%
+              </div>
             </div>
             <div className="mt-2 text-xs text-gray-500">維持進度</div>
             <div className="mt-1 h-2 overflow-hidden rounded-full bg-gray-200">
