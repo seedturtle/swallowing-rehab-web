@@ -13,8 +13,14 @@ function App() {
   const [currentView, setCurrentView] = useState<View>('home');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
+
+  const [visitCount] = useState<number>(() => {
+    const prev = parseInt(localStorage.getItem('swallow-rehab-visit') || '0');
+    localStorage.setItem('swallow-rehab-visit', String(prev + 1));
+    return prev + 1;
+  });
+
   const [progress, setProgress] = useState<PatientProgress[]>(() => {
-    // 從 localStorage 讀取（不同裝置各自保存）
     try {
       const saved = localStorage.getItem('swallow-rehab-progress');
       if (saved) return JSON.parse(saved);
@@ -29,7 +35,6 @@ function App() {
 
   const completeExercise = (exerciseId: string, repetitions?: number, tracking?: TrackingSummary) => {
     const now = new Date().toISOString();
-
     saveProgress([...progress, {
       date: now,
       exerciseId,
@@ -94,10 +99,11 @@ function App() {
               📊 查看進度
             </button>
           </div>
-          
+
           {/* Footer — 僅首頁顯示 */}
           <div className="text-center text-xs text-gray-400 mt-8 pb-4">
-            耳鼻喉科 洪士涵醫師 | 2026年5月23日
+            耳鼻喉科 洪士涵醫師 | 2026年5月23日<br />
+            造訪 {visitCount} 次
           </div>
         </div>
       )}
