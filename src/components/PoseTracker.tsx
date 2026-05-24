@@ -36,6 +36,7 @@ type TrainingState = {
   reps: number;
   readyForNextRep: boolean;
 };
+type PracticeState = 'idle' | 'countdown' | 'active';
 
 const MODEL_URL = '/models';
 const HOLD_MS = 6000;
@@ -334,6 +335,7 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
   const calibrationStepIndexRef = useRef(-1);
   const trainingRef = useRef<TrainingState>({ openPercent: 0, holdMs: 0, reps: 0, readyForNextRep: true });
   const lastFrameAtRef = useRef(Date.now());
+  const practiceCountdownStartedAtRef = useRef(0);
 
   const [status, setStatus] = useState('尚未啟動');
   const [modelLoaded, setModelLoaded] = useState(false);
@@ -350,6 +352,8 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
     message: '尚未校正',
   });
   const [training, setTraining] = useState<TrainingState>({ openPercent: 0, holdMs: 0, reps: 0, readyForNextRep: true });
+  const [practiceState, setPracticeState] = useState<PracticeState>('idle');
+  const [practiceCountdownMs, setPracticeCountdownMs] = useState(0);
 
   const startCalibration = () => {
     if (!profile.quantifiable || profile.calibrationSteps.length === 0) return;
@@ -370,6 +374,16 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
   const resetTraining = () => {
     trainingRef.current = { openPercent: 0, holdMs: 0, reps: 0, readyForNextRep: true };
     setTraining(trainingRef.current);
+    setPracticeState('idle');
+    setPracticeCountdownMs(0);
+  };
+
+  const startPractice = () => {
+    trainingRef.current = { openPercent: 0, holdMs: 0, reps: 0, readyForNextRep: true };
+    setTraining(trainingRef.current);
+    practiceCountdownStartedAtRef.current = Date.now();
+    setPracticeCountdownMs(3000);
+    setPracticeState('countdown');
   };
 
   function updateCalibration(metrics: FaceMetrics) {
@@ -601,8 +615,13 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
               if (metrics) {
                 setLatestMetrics(metrics);
                 updateCalibration(metrics);
+                const livePercent = metricPercent(metrics, calibration);
+                if (livePercent !== null && profile.quantifiable && calibrationComplete(calibration, profile)) {
+                  trainingRef.current = { ...trainingRef.current, openPercent: clamp(livePercent, 0, 130) };
+                  setTraining(trainingRef.current);
+                }
                 setCalibration(currentCalibration => {
-                  if (profile.quantifiable && calibrationComplete(currentCalibration, profile)) updateTraining(metrics, currentCalibration);
+                  if (profile.quantifiable && practiceState === 'active' && calibrationComplete(currentCalibration, profile)) updateTraining(metrics, currentCalibration);
                   return currentCalibration;
                 });
                 setStatus(`已偵測到臉部｜五官點：${metrics.pointCount}｜${profile.targetLabel}：${Math.round(clamp(metricPercent(metrics, calibration) ?? 0, 0, 100))}%`);
@@ -637,7 +656,21 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
   const isCalibrated = profile.quantifiable && calibrationComplete(calibration, profile);
   const holdPercent = clamp((training.holdMs / HOLD_MS) * 100, 0, 100);
   const scorePercent = Math.round(training.openPercent);
-  const displayScorePercent = clamp(scorePercent, 0, 100);
+  const displayScorePercent = practiceState === 'idle' ? 0 : clamp(scorePercent, 0, 100);
+
+  useEffect(() => {
+    if (practiceState !== 'countdown') return;
+    const timer = window.setInterval(() => {
+      const remaining = Math.max(0, 3000 - (Date.now() - practiceCountdownStartedAtRef.current));
+      setPracticeCountdownMs(remaining);
+      if (remaining <= 0) {
+        setPracticeState('active');
+        setPracticeCountdownMs(0);
+        lastFrameAtRef.current = Date.now();
+      }
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [practiceState]);
 
   return (
     <>
@@ -658,6 +691,18 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
             </span>
           </div>
         </div>
+
+        {practiceState === 'countdown' && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="rounded-3xl bg-green-950/65 px-10 py-7 text-center text-white shadow-2xl backdrop-blur-sm">
+              <div className="text-sm font-semibold tracking-wide text-green-200">準備開始練習</div>
+              <div className="mt-3 text-8xl font-black leading-none tabular-nums drop-shadow-lg">
+                {Math.max(1, Math.ceil(practiceCountdownMs / 1000))}
+              </div>
+              <div className="mt-2 text-xs text-slate-200">倒數結束後開始計算有效次數</div>
+            </div>
+          </div>
+        )}
 
         {calibrationUi.active && currentStep && (
           <div className="absolute inset-0 flex items-center justify-center">
@@ -726,9 +771,12 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
             <div className="mb-2 flex items-start justify-between gap-2">
               <div>
                 <div className="text-base font-bold text-gray-900">{profile.title}</div>
-                <div className="text-xs text-gray-500">達到目標以上並維持 {(HOLD_MS / 1000).toFixed(0)} 秒，算 1 次有效練習。</div>
+                <div className="text-xs text-gray-500">按下開始練習後，達到目標以上並維持 {(HOLD_MS / 1000).toFixed(0)} 秒，算 1 次有效練習。</div>
               </div>
               <div className="flex gap-1">
+                <button type="button" onClick={startPractice} className="rounded bg-green-600 px-2 py-1 text-xs font-semibold text-white">
+                  開始練習
+                </button>
                 <button type="button" onClick={startCalibration} className="rounded bg-purple-100 px-2 py-1 text-xs font-semibold text-purple-700">
                   重新校正
                 </button>
@@ -741,10 +789,8 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
             <div className="rounded-xl bg-slate-50 p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <div>
-                  <div className="text-sm font-semibold text-gray-700"></div>
-                </div>
-                <div className="text-xs text-gray-500">
-                  {profile.targetLabel} 0%
+                  <div className="text-sm font-semibold text-gray-700">動作到位程度</div>
+                  <div className="text-[11px] text-gray-500">{practiceState === 'idle' ? '請先按開始練習' : '條狀指示越滿代表越接近 100%'}</div>
                 </div>
                 <div className="text-xs text-gray-500">
                   目標 {profile.targetPercent}%
@@ -760,7 +806,7 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
                 />
                 <div className="absolute top-0 h-full w-1 bg-green-800/70" style={{ left: `${profile.targetPercent}%` }} />
                 <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-800">
-                  {displayScorePercent}%
+                  {practiceState === 'idle' ? '請按開始練習' : `${displayScorePercent}%`}
                 </div>
               </div>
               <div className="mt-2 text-xs text-gray-500">維持進度</div>

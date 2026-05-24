@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+
+type PracticeState = 'idle' | 'countdown' | 'active';
 import * as posedetection from '@tensorflow-models/pose-detection';
 import * as tf from '@tensorflow/tfjs-core';
 import '@tensorflow/tfjs-backend-webgl';
@@ -146,6 +148,7 @@ export default function PoseBodyTracker({ videoRef, isTracking, profile }: PoseB
   const rafIdRef = useRef(0);
   const lastFrameAtRef = useRef(Date.now());
   const trainingRef = useRef({ percent: 0, holdMs: 0, reps: 0, readyForNextRep: true });
+  const practiceCountdownStartedAtRef = useRef(0);
 
   const [loadProgress, setLoadProgress] = useState(0);
   const [loadStep, setLoadStep] = useState('尚未啟動');
@@ -155,6 +158,8 @@ export default function PoseBodyTracker({ videoRef, isTracking, profile }: PoseB
   const [holdMs, setHoldMs] = useState(0);
   const [reps, setReps] = useState(0);
   const [status, setStatus] = useState('尚未啟動');
+  const [practiceState, setPracticeState] = useState<PracticeState>('idle');
+  const [practiceCountdownMs, setPracticeCountdownMs] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -230,17 +235,17 @@ export default function PoseBodyTracker({ videoRef, isTracking, profile }: PoseB
               const now = Date.now();
               const delta = Math.min(500, Math.max(0, now - lastFrameAtRef.current));
               const current = { ...trainingRef.current, percent: score.percent };
-              if (score.percent >= profile.targetPercent && current.readyForNextRep) {
+              if (practiceState === 'active' && score.percent >= profile.targetPercent && current.readyForNextRep) {
                 current.holdMs = Math.min(HOLD_MS, current.holdMs + delta);
                 if (current.holdMs >= HOLD_MS) {
                   current.reps = Math.min(TARGET_REPS, current.reps + 1);
                   current.readyForNextRep = false;
                   current.holdMs = 0;
                 }
-              } else if (score.percent < 50) {
+              } else if (practiceState === 'active' && score.percent < 50) {
                 current.readyForNextRep = true;
                 current.holdMs = 0;
-              } else if (score.percent < profile.targetPercent) {
+              } else if (practiceState === 'active' && score.percent < profile.targetPercent) {
                 current.holdMs = 0;
               }
               trainingRef.current = current;
@@ -275,7 +280,21 @@ export default function PoseBodyTracker({ videoRef, isTracking, profile }: PoseB
     };
   }, [isTracking, videoRef, profile]);
 
-  const displayPercent = clamp(percent, 0, 100);
+  const displayPercent = practiceState === 'idle' ? 0 : clamp(percent, 0, 100);
+
+  useEffect(() => {
+    if (practiceState !== 'countdown') return;
+    const timer = window.setInterval(() => {
+      const remaining = Math.max(0, 3000 - (Date.now() - practiceCountdownStartedAtRef.current));
+      setPracticeCountdownMs(remaining);
+      if (remaining <= 0) {
+        setPracticeState('active');
+        setPracticeCountdownMs(0);
+        lastFrameAtRef.current = Date.now();
+      }
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [practiceState]);
   const holdPercent = clamp((holdMs / HOLD_MS) * 100, 0, 100);
 
   return (
@@ -290,6 +309,17 @@ export default function PoseBodyTracker({ videoRef, isTracking, profile }: PoseB
             <span className="w-fit rounded bg-slate-900/65 px-2 py-1 text-white shadow">人：{personCount}</span>
           </div>
         </div>
+        {practiceState === 'countdown' && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="rounded-3xl bg-green-950/65 px-10 py-7 text-center text-white shadow-2xl backdrop-blur-sm">
+              <div className="text-sm font-semibold tracking-wide text-green-200">準備開始練習</div>
+              <div className="mt-3 text-8xl font-black leading-none tabular-nums drop-shadow-lg">
+                {Math.max(1, Math.ceil(practiceCountdownMs / 1000))}
+              </div>
+              <div className="mt-2 text-xs text-slate-200">倒數結束後開始計算有效次數</div>
+            </div>
+          </div>
+        )}
         <div className="absolute bottom-2 left-2 right-2 rounded bg-slate-900/55 px-2 py-1 text-center text-[11px] leading-snug text-white">{status}</div>
       </div>
 
@@ -310,26 +340,44 @@ export default function PoseBodyTracker({ videoRef, isTracking, profile }: PoseB
             <div className="mb-2 flex items-start justify-between gap-2">
               <div>
                 <div className="text-base font-bold text-gray-900">{profile.title}</div>
-                <div className="text-xs text-gray-500">到位程度達目標以上並維持 {(HOLD_MS / 1000).toFixed(0)} 秒，算 1 次有效練習。</div>
+                <div className="text-xs text-gray-500">按下開始練習後，到位程度達目標以上並維持 {(HOLD_MS / 1000).toFixed(0)} 秒，算 1 次有效練習。</div>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  trainingRef.current = { percent: 0, holdMs: 0, reps: 0, readyForNextRep: true };
-                  setPercent(0);
-                  setHoldMs(0);
-                  setReps(0);
-                }}
-                className="rounded bg-gray-200 px-2 py-1 text-xs text-gray-700"
-              >
-                重置
-              </button>
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    trainingRef.current = { percent: 0, holdMs: 0, reps: 0, readyForNextRep: true };
+                    setPercent(0);
+                    setHoldMs(0);
+                    setReps(0);
+                    practiceCountdownStartedAtRef.current = Date.now();
+                    setPracticeCountdownMs(3000);
+                    setPracticeState('countdown');
+                  }}
+                  className="rounded bg-green-600 px-2 py-1 text-xs font-semibold text-white"
+                >
+                  開始練習
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    trainingRef.current = { percent: 0, holdMs: 0, reps: 0, readyForNextRep: true };
+                    setPercent(0);
+                    setHoldMs(0);
+                    setReps(0);
+                    setPracticeState('idle');
+                  }}
+                  className="rounded bg-gray-200 px-2 py-1 text-xs text-gray-700"
+                >
+                  重置
+                </button>
+              </div>
             </div>
             <div className="rounded-xl bg-slate-50 p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <div>
                   <div className="text-sm font-semibold text-gray-700">動作到位程度</div>
-                  <div className="text-[11px] text-gray-500">條狀指示越滿代表越接近 100%</div>
+                  <div className="text-[11px] text-gray-500">{practiceState === 'idle' ? '請先按開始練習' : '條狀指示越滿代表越接近 100%'}</div>
                 </div>
                 <span className={`rounded-full px-2 py-1 text-xs font-bold ${displayPercent >= profile.targetPercent ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
                   {displayPercent >= profile.targetPercent ? '已達標' : '繼續加油'}
@@ -339,7 +387,7 @@ export default function PoseBodyTracker({ videoRef, isTracking, profile }: PoseB
                 <div className={`h-full rounded-full transition-all duration-200 ${displayPercent >= profile.targetPercent ? 'bg-green-500' : 'bg-amber-500'}`} style={{ width: `${displayPercent}%` }} />
                 <div className="absolute top-0 h-full w-1 bg-green-800/70" style={{ left: `${profile.targetPercent}%` }} />
                 <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-slate-800">
-                  {profile.targetLabel}：{displayPercent}%
+                  {practiceState === 'idle' ? '請按開始練習' : `${profile.targetLabel}：${displayPercent}%`}
                 </div>
               </div>
               <div className="mt-1 flex justify-between text-[11px] text-gray-500">
