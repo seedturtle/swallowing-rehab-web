@@ -659,6 +659,25 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
           </div>
         </div>
 
+        {calibrationUi.active && currentStep && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="rounded-3xl bg-slate-950/55 px-8 py-6 text-center text-white shadow-2xl backdrop-blur-sm">
+              <div className="text-sm font-semibold tracking-wide text-purple-200">{currentStep.title}</div>
+              <div className="mt-1 text-xs text-slate-200">{currentStep.instruction}</div>
+              <div className="mt-3 text-8xl font-black leading-none tabular-nums drop-shadow-lg">
+                {Math.max(1, Math.ceil(calibrationUi.remainingMs / 1000))}
+              </div>
+              <div className="mt-2 h-2 w-40 overflow-hidden rounded-full bg-white/25">
+                <div
+                  className="h-full rounded-full bg-purple-400 transition-all duration-200"
+                  style={{ width: `${clamp(((HOLD_MS - calibrationUi.remainingMs) / HOLD_MS) * 100, 0, 100)}%` }}
+                />
+              </div>
+              <div className="mt-2 text-xs text-slate-200">請維持動作不動</div>
+            </div>
+          </div>
+        )}
+
         <div className="absolute bottom-2 left-2 right-2 rounded bg-slate-900/55 px-2 py-1 text-center text-[11px] leading-snug text-white">
           {calibrationUi.active && currentStep ? `${currentStep.title}｜${Math.ceil(calibrationUi.remainingMs / 1000)} 秒` : status}
         </div>
