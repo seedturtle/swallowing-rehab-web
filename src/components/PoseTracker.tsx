@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import * as faceapi from '@vladmandic/face-api';
+import type { TrackingProfile } from '../utils/trackingProfile';
 
 interface PoseTrackerProps {
   videoRef: React.RefObject<HTMLVideoElement>;
   isTracking: boolean;
+  profile: TrackingProfile;
   onLandmarksDetected?: (landmarks: any) => void;
 }
 
@@ -34,40 +36,7 @@ type TrainingState = {
 
 const MODEL_URL = '/models';
 const HOLD_MS = 6000;
-const TARGET_OPEN_PERCENT = 80;
 const TARGET_REPS = 10;
-
-const CALIBRATION_STEPS: Array<{
-  key: CalibrationKey;
-  title: string;
-  instruction: string;
-  tip: string;
-}> = [
-  {
-    key: 'closed',
-    title: '自然閉口',
-    instruction: '嘴巴輕輕閉起來，正面看鏡頭。',
-    tip: '不要用力咬牙，維持放鬆。',
-  },
-  {
-    key: 'open',
-    title: '最大張口',
-    instruction: '嘴巴慢慢張到可以接受的最大程度。',
-    tip: '不要勉強疼痛，維持穩定即可。',
-  },
-  {
-    key: 'smile',
-    title: '最大微笑',
-    instruction: '嘴角盡量往左右打開。',
-    tip: '保持頭部不要晃動。',
-  },
-  {
-    key: 'pucker',
-    title: '噘嘴／圓唇',
-    instruction: '像發「ㄨ」的嘴型，嘴唇向前收圓。',
-    tip: '維持 6 秒，系統會自動記錄。',
-  },
-];
 
 const COLORS = {
   box: '#22C55E',
@@ -275,7 +244,7 @@ function calibrationComplete(values: CalibrationValues) {
   return Boolean(values.closed && values.open && values.smile && values.pucker);
 }
 
-export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected }: PoseTrackerProps) {
+export default function PoseTracker({ videoRef, isTracking, profile, onLandmarksDetected }: PoseTrackerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafIdRef = useRef(0);
   const activeRef = useRef(false);
@@ -303,6 +272,7 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
   const [training, setTraining] = useState<TrainingState>({ openPercent: 0, holdMs: 0, reps: 0, readyForNextRep: true });
 
   const startCalibration = () => {
+    if (!profile.quantifiable || profile.calibrationSteps.length === 0) return;
     calibrationSamplesRef.current = { closed: [], open: [], smile: [], pucker: [] };
     calibrationStartedAtRef.current = Date.now();
     calibrationStepIndexRef.current = 0;
@@ -324,9 +294,9 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
 
   function updateCalibration(metrics: FaceMetrics) {
     const index = calibrationStepIndexRef.current;
-    if (index < 0 || index >= CALIBRATION_STEPS.length) return;
+    if (index < 0 || index >= profile.calibrationSteps.length) return;
 
-    const step = CALIBRATION_STEPS[index];
+    const step = profile.calibrationSteps[index];
     calibrationSamplesRef.current[step.key].push(metrics);
     const elapsed = Date.now() - calibrationStartedAtRef.current;
     const remainingMs = Math.max(0, HOLD_MS - elapsed);
@@ -341,7 +311,7 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
     if (elapsed < HOLD_MS) return;
 
     const nextIndex = index + 1;
-    if (nextIndex >= CALIBRATION_STEPS.length) {
+    if (nextIndex >= profile.calibrationSteps.length) {
       const nextCalibration = {
         closed: meanMetrics(calibrationSamplesRef.current.closed),
         open: meanMetrics(calibrationSamplesRef.current.open),
@@ -362,7 +332,7 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
 
     calibrationStepIndexRef.current = nextIndex;
     calibrationStartedAtRef.current = Date.now();
-    const nextStep = CALIBRATION_STEPS[nextIndex];
+    const nextStep = profile.calibrationSteps[nextIndex];
     setCalibrationUi({
       active: true,
       stepIndex: nextIndex,
@@ -371,27 +341,49 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
     });
   }
 
+  function metricPercent(metrics: FaceMetrics, values: CalibrationValues) {
+    if (!values.closed) return null;
+    if (profile.mode === 'mouth-open') {
+      if (!values.open) return null;
+      const range = values.open.mouthOpenRatio - values.closed.mouthOpenRatio;
+      if (!Number.isFinite(range) || range < 0.02) return null;
+      return ((metrics.mouthOpenRatio - values.closed.mouthOpenRatio) / range) * 100;
+    }
+    if (profile.mode === 'lip-pucker') {
+      if (!values.pucker) return null;
+      const range = values.closed.mouthWidthRatio - values.pucker.mouthWidthRatio;
+      if (!Number.isFinite(range) || range < 0.02) return null;
+      return ((values.closed.mouthWidthRatio - metrics.mouthWidthRatio) / range) * 100;
+    }
+    if (profile.mode === 'smile') {
+      if (!values.smile) return null;
+      const range = values.smile.mouthWidthRatio - values.closed.mouthWidthRatio;
+      if (!Number.isFinite(range) || range < 0.02) return null;
+      return ((metrics.mouthWidthRatio - values.closed.mouthWidthRatio) / range) * 100;
+    }
+    return null;
+  }
+
   function updateTraining(metrics: FaceMetrics, values: CalibrationValues) {
-    if (!values.closed || !values.open) return;
-    const range = values.open.mouthOpenRatio - values.closed.mouthOpenRatio;
-    if (!Number.isFinite(range) || range < 0.02) return;
+    const percent = metricPercent(metrics, values);
+    if (percent === null) return;
 
     const now = Date.now();
     const deltaMs = Math.min(250, Math.max(0, now - lastFrameAtRef.current));
-    const openPercent = clamp(((metrics.mouthOpenRatio - values.closed.mouthOpenRatio) / range) * 100, 0, 130);
-    const current = { ...trainingRef.current, openPercent };
+    const currentPercent = clamp(percent, 0, 130);
+    const current = { ...trainingRef.current, openPercent: currentPercent };
 
-    if (openPercent >= TARGET_OPEN_PERCENT && current.readyForNextRep) {
+    if (currentPercent >= profile.targetPercent && current.readyForNextRep) {
       current.holdMs = Math.min(HOLD_MS, current.holdMs + deltaMs);
       if (current.holdMs >= HOLD_MS) {
         current.reps = Math.min(TARGET_REPS, current.reps + 1);
         current.readyForNextRep = false;
         current.holdMs = 0;
       }
-    } else if (openPercent < 50) {
+    } else if (currentPercent < 50) {
       current.readyForNextRep = true;
       current.holdMs = 0;
-    } else if (openPercent < TARGET_OPEN_PERCENT) {
+    } else if (currentPercent < profile.targetPercent) {
       current.holdMs = 0;
     }
 
@@ -471,7 +463,11 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
       setLoadProgress(100);
       setLoadStep('模型準備完成');
       setModelLoaded(true);
-      setStatus('模型已就緒，請先做臉部動作校正');
+      if (profile.quantifiable) {
+        setStatus('模型已就緒，請先做此項目的動作校正');
+      } else {
+        setStatus('模型已就緒。本項目提供鏡頭自我觀察，不顯示量化分數。');
+      }
       lastDetectedAtRef.current = Date.now();
       lastFrameAtRef.current = Date.now();
 
@@ -500,7 +496,7 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
                 setLatestMetrics(metrics);
                 updateCalibration(metrics);
                 setCalibration(currentCalibration => {
-                  if (calibrationComplete(currentCalibration)) updateTraining(metrics, currentCalibration);
+                  if (profile.quantifiable && calibrationComplete(currentCalibration)) updateTraining(metrics, currentCalibration);
                   return currentCalibration;
                 });
                 setStatus(`已偵測到臉部｜五官點：${metrics.pointCount}｜張口比：${metrics.mouthOpenRatio.toFixed(3)}`);
@@ -531,8 +527,8 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
     };
   }, [isTracking, videoRef, onLandmarksDetected]);
 
-  const currentStep = calibrationUi.active ? CALIBRATION_STEPS[calibrationUi.stepIndex] : null;
-  const isCalibrated = calibrationComplete(calibration);
+  const currentStep = calibrationUi.active ? profile.calibrationSteps[calibrationUi.stepIndex] : null;
+  const isCalibrated = profile.quantifiable && calibrationComplete(calibration);
   const holdPercent = clamp((training.holdMs / HOLD_MS) * 100, 0, 100);
   const openPercent = Math.round(training.openPercent);
   const displayOpenPercent = clamp(openPercent, 0, 100);
@@ -593,17 +589,11 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
           </div>
         )}
 
-        {modelLoaded && calibrationUi.active && currentStep && (
+        {modelLoaded && profile.quantifiable && !calibrationUi.active && !isCalibrated && (
           <div>
-            <div className="flex items-center justify-between text-xs text-purple-700">
-              <span>校正 {calibrationUi.stepIndex + 1} / {CALIBRATION_STEPS.length}</span>
-              <span>{Math.ceil(calibrationUi.remainingMs / 1000)} 秒</span>
-            </div>
-            <div className="mt-1 text-xl font-bold text-purple-900">{currentStep.title}</div>
-            <div className="mt-1 text-sm text-gray-700">{currentStep.instruction}</div>
-            <div className="mt-1 text-xs text-gray-500">{currentStep.tip}</div>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-purple-100">
-              <div className="h-full rounded-full bg-purple-600 transition-all" style={{ width: `${100 - (calibrationUi.remainingMs / HOLD_MS) * 100}%` }} />
+            <div className="flex max-w-[55%] flex-col items-end gap-1 rounded-lg bg-amber-600/90 px-2 py-1 text-right text-[11px] text-white shadow">
+              <div className="font-bold">鏡頭自我觀察</div>
+              <div className="leading-snug">本項目不顯示量化分數</div>
             </div>
           </div>
         )}
@@ -628,7 +618,7 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
             <div className="grid grid-cols-3 gap-2 text-center text-xs">
               <div className="rounded-lg bg-amber-50 p-2">
                 <div className="text-gray-500">目前張口</div>
-                <div className={`text-2xl font-bold ${displayOpenPercent >= TARGET_OPEN_PERCENT ? 'text-green-600' : 'text-amber-600'}`}>
+                <div className={`text-2xl font-bold ${displayOpenPercent >= profile.targetPercent ? 'text-green-600' : 'text-amber-600'}`}>
                   {displayOpenPercent}%
                 </div>
               </div>
@@ -642,10 +632,10 @@ export default function PoseTracker({ videoRef, isTracking, onLandmarksDetected 
               </div>
             </div>
 
-            <div className="mt-3 text-xs text-gray-500">目標：至少 {TARGET_OPEN_PERCENT}%</div>
+            <div className="mt-3 text-xs text-gray-500">目標：至少 {profile.targetPercent}%</div>
             <div className="relative mt-1 h-3 overflow-hidden rounded-full bg-gray-200">
               <div className="h-full rounded-full bg-amber-500 transition-all" style={{ width: `${displayOpenPercent}%` }} />
-              <div className="absolute top-0 h-full w-0.5 bg-green-600" style={{ left: `${TARGET_OPEN_PERCENT}%` }} />
+              <div className="absolute top-0 h-full w-0.5 bg-green-300" style={{ left: `${profile.targetPercent}%` }} />
             </div>
             <div className="mt-2 text-xs text-gray-500">維持進度</div>
             <div className="mt-1 h-2 overflow-hidden rounded-full bg-gray-200">

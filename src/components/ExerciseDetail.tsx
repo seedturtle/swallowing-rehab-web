@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import PoseTracker from './PoseTracker';
 import { Exercise } from '../data/types';
+import { getExerciseTrackingProfile } from '../utils/trackingProfile';
 
 interface ExerciseDetailProps {
   exercise: Exercise;
@@ -43,6 +44,7 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
   const [showCamera, setShowCamera] = useState(false);
   const [camError, setCamError] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
+  const trackingProfile = getExerciseTrackingProfile(exercise);
 
   // 開啟/關閉鏡頭
   const toggleCamera = async () => {
@@ -211,9 +213,19 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
       </div>
 
       <div className="bg-purple-50 rounded-xl border border-purple-200 p-4">
-        <button onClick={toggleCamera} className="w-full py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 flex items-center justify-center gap-2">
-          {showCamera ? '📷 關閉鏡頭' : '📷 開啟鏡頭'}
+        <button
+          onClick={toggleCamera}
+          className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+            showCamera 
+              ? 'bg-red-500 hover:bg-red-600 text-white' 
+              : 'bg-blue-500 hover:bg-blue-600 text-white'
+          }`}
+        >
+          {showCamera ? '關閉鏡頭' : '開啟鏡頭'}
         </button>
+        <div className={`mt-2 rounded-lg border px-3 py-2 text-sm ${trackingProfile.quantifiable ? 'border-green-200 bg-green-50 text-green-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+          {trackingProfile.patientNotice}
+        </div>
         {camError && <div className="mt-2 text-red-600 text-sm">{camError}</div>}
         
         {showCamera && (
@@ -226,7 +238,7 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
               className="absolute inset-0 w-full h-full rounded-lg object-contain"
               style={{ transform: 'scaleX(-1)' }}
             />
-            <PoseTracker videoRef={videoRef} isTracking={showCamera} />
+            <PoseTracker videoRef={videoRef} isTracking={showCamera} profile={trackingProfile} />
           </div>
         )}
       </div>
