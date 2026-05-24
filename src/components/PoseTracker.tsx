@@ -240,8 +240,9 @@ function defaultCalibration(): CalibrationValues {
   return { closed: null, open: null, smile: null, pucker: null };
 }
 
-function calibrationComplete(values: CalibrationValues) {
-  return Boolean(values.closed && values.open && values.smile && values.pucker);
+function calibrationComplete(values: CalibrationValues, profile: TrackingProfile) {
+  if (!profile.quantifiable || profile.calibrationSteps.length === 0) return false;
+  return profile.calibrationSteps.every(step => Boolean(values[step.key]));
 }
 
 export default function PoseTracker({ videoRef, isTracking, profile, onLandmarksDetected }: PoseTrackerProps) {
@@ -324,7 +325,7 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
         active: false,
         stepIndex: -1,
         remainingMs: 0,
-        message: '校正完成，可以開始張口練習。',
+        message: `校正完成，可以開始${profile.title}。`,
       });
       resetTraining();
       return;
@@ -496,10 +497,10 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
                 setLatestMetrics(metrics);
                 updateCalibration(metrics);
                 setCalibration(currentCalibration => {
-                  if (profile.quantifiable && calibrationComplete(currentCalibration)) updateTraining(metrics, currentCalibration);
+                  if (profile.quantifiable && calibrationComplete(currentCalibration, profile)) updateTraining(metrics, currentCalibration);
                   return currentCalibration;
                 });
-                setStatus(`已偵測到臉部｜五官點：${metrics.pointCount}｜張口比：${metrics.mouthOpenRatio.toFixed(3)}`);
+                setStatus(`已偵測到臉部｜五官點：${metrics.pointCount}｜${profile.targetLabel}：${Math.round(clamp(metricPercent(metrics, calibration) ?? 0, 0, 100))}%`);
               } else {
                 setStatus(`已偵測到臉部，但五官點不足：${points.length}`);
               }
@@ -528,7 +529,7 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
   }, [isTracking, videoRef, onLandmarksDetected]);
 
   const currentStep = calibrationUi.active ? profile.calibrationSteps[calibrationUi.stepIndex] : null;
-  const isCalibrated = profile.quantifiable && calibrationComplete(calibration);
+  const isCalibrated = profile.quantifiable && calibrationComplete(calibration, profile);
   const holdPercent = clamp((training.holdMs / HOLD_MS) * 100, 0, 100);
   const scorePercent = Math.round(training.openPercent);
   const displayScorePercent = clamp(scorePercent, 0, 100);

@@ -229,7 +229,7 @@ export default function ExerciseDetail({ exercise, onBack, onComplete }: Exercis
         {camError && <div className="mt-2 text-red-600 text-sm">{camError}</div>}
         
         {showCamera && (
-          <div className="mt-3 relative aspect-video rounded-lg overflow-hidden bg-black">
+          <div className="mt-3 relative aspect-video rounded-lg bg-black" style={{ marginBottom: trackingProfile.quantifiable ? '300px' : '130px' }}>
             <video
               ref={videoRef}
               autoPlay
