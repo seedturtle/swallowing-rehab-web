@@ -354,7 +354,9 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
   const [loadProgress, setLoadProgress] = useState(0);
   const [loadStep, setLoadStep] = useState('尚未啟動');
   const [latestMetrics, setLatestMetrics] = useState<FaceMetrics | null>(null);
-  const [calibration, setCalibration] = useState<CalibrationValues>(defaultCalibration);
+  const [calibration, setCalibration] = useState<CalibrationValues>(defaultCalibration());
+  const calibrationRef = useRef(calibration);
+  calibrationRef.current = calibration;
   const [calibrationUi, setCalibrationUi] = useState<CalibrationUi>({
     active: false,
     stepIndex: -1,
@@ -632,8 +634,8 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
               if (metrics) {
                 setLatestMetrics(metrics);
                 updateCalibration(metrics);
-                const livePercent = metricPercent(metrics, calibration);
-                if (livePercent !== null && profile.quantifiable && calibrationComplete(calibration, profile)) {
+                const livePercent = metricPercent(metrics, calibrationRef.current);
+                if (livePercent !== null && profile.quantifiable && calibrationComplete(calibrationRef.current, profile)) {
                   trainingRef.current = { ...trainingRef.current, openPercent: clamp(livePercent, 0, 130) };
                   setTraining(trainingRef.current);
                 }
@@ -641,7 +643,7 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
                   if (profile.quantifiable && practiceState === 'active' && calibrationComplete(currentCalibration, profile)) updateTraining(metrics, currentCalibration);
                   return currentCalibration;
                 });
-                setStatus(`已偵測到臉部｜五官點：${metrics.pointCount}｜${profile.targetLabel}：${Math.round(clamp(metricPercent(metrics, calibration) ?? 0, 0, 100))}%`);
+                setStatus(`已偵測到臉部｜五官點：${metrics.pointCount}｜${profile.targetLabel}：${Math.round(clamp(metricPercent(metrics, calibrationRef.current) ?? 0, 0, 100))}%`);
               } else {
                 setStatus(`已偵測到臉部，但五官點不足：${points.length}`);
               }
@@ -667,13 +669,13 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
       activeRef.current = false;
       cancelAnimationFrame(rafIdRef.current);
     };
-  }, [isTracking, videoRef, onLandmarksDetected]);
+  }, [isTracking, videoRef, onLandmarksDetected, calibration, practiceState]);
 
   const currentStep = calibrationUi.active ? profile.calibrationSteps[calibrationUi.stepIndex] : null;
   const isCalibrated = profile.quantifiable && calibrationComplete(calibration, profile);
   const holdPercent = clamp((training.holdMs / HOLD_MS) * 100, 0, 100);
   const scorePercent = Math.round(training.openPercent);
-  const displayScorePercent = practiceState === 'idle' ? 0 : clamp(scorePercent, 0, 100);
+  const displayScorePercent = clamp(scorePercent, 0, 100);
 
   useEffect(() => {
     if (practiceState !== 'countdown') return;
@@ -822,7 +824,7 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
               <div className="mb-2 flex items-center justify-between gap-2">
                 <div>
                   <div className="text-sm font-semibold text-gray-700">動作到位程度</div>
-                  <div className="text-[11px] text-gray-500">{practiceState === 'idle' ? '請先按開始練習' : '條狀指示越滿代表越接近 100%'}</div>
+                  <div className="text-[11px] text-gray-500">{practiceState === 'idle' ? '即時預覽：尚未開始計數' : '條狀指示越滿代表越接近 100%'}</div>
                 </div>
                 <div className="text-xs text-gray-500">
                   目標 {profile.targetPercent}%
@@ -838,7 +840,7 @@ export default function PoseTracker({ videoRef, isTracking, profile, onLandmarks
                 />
                 <div className="absolute top-0 h-full w-1 bg-green-800/70" style={{ left: `${profile.targetPercent}%` }} />
                 <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-800">
-                  {practiceState === 'idle' ? '請按開始練習' : `${displayScorePercent}%`}
+                  {practiceState === 'idle' ? `即時 ${displayScorePercent}%` : `${displayScorePercent}%`}
                 </div>
               </div>
               <div className="mt-2 text-xs text-gray-500">維持進度</div>
